@@ -14,17 +14,17 @@ import org.joml.*;
 public class Code extends JFrame implements GLEventListener
 {	
 	private GLCanvas myCanvas;
-	private int renderingProgram;
+	private int objectProgram, axesProgram;
 	private int vao[] = new int[1];
 	private int vbo[] = new int[5];
 	private double startTime = 0.0;
 	private double elapsedTime;
 	private double tf;
 	private float cameraX, cameraY, cameraZ;
+	private float cubeLocX, cubeLocY, cubeLocZ, trapeLocX, trapeLocY, trapeLocZ;
 
 	// allocate variables for display() function
 	private FloatBuffer vals = Buffers.newDirectFloatBuffer(16);  // buffer for transfering matrix to uniform
-	private Matrix4fStack mvStack = new Matrix4fStack(8);	//model-view matrix stack
 	private Matrix4f pMat = new Matrix4f();  // perspective matrix
 	private Matrix4f vMat = new Matrix4f();  // view matrix
 	private Matrix4f mMat = new Matrix4f();  // model matrix
@@ -55,80 +55,59 @@ public class Code extends JFrame implements GLEventListener
 		elapsedTime = System.currentTimeMillis() - startTime;
 		tf = elapsedTime/1000.0;
 
-		gl.glUseProgram(renderingProgram);
+		// render xyz axes
+		gl.glUseProgram(axesProgram);
+		gl.glDrawArrays(GL_LINES, 0, 6);
 
-		mvLoc = gl.glGetUniformLocation(renderingProgram, "mv_matrix");
-		pLoc = gl.glGetUniformLocation(renderingProgram, "p_matrix");
+
+		gl.glUseProgram(objectProgram);
+
+		mvLoc = gl.glGetUniformLocation(objectProgram, "mv_matrix");
+		pLoc = gl.glGetUniformLocation(objectProgram, "p_matrix");
 
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
-		pMat.identity().setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
+		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 
-		// push view matrix initial empty state
-		mvStack.pushMatrix();
-		mvStack.translate(-cameraX, -cameraY, -cameraZ);		// moves matrix to camera location
 
-		// x-axis render
-		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		gl.glDrawArrays(GL_LINES, 0, 2);
-		// y-axis render
-		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		gl.glDrawArrays(GL_LINES, 0, 2);
-		// z-axis render
-		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		gl.glDrawArrays(GL_LINES, 0, 2);
+		mMat.identity();
+		vMat.translation(-cameraX, -cameraY, -cameraZ);		// moves matrix to camera location
+		mMat.translation(cubeLocX, cubeLocY, cubeLocZ);
+		mMat.rotate((float)tf, (float)Math.cos(tf), (float)Math.sin(tf), 0.0f);
 
-		// parent cube object
-		mvStack.pushMatrix();			//push parent matrix
-		mvStack.translate(0.0f, 0.0f, 0.0f);
-		mvStack.pushMatrix();
-		mvStack.rotate((float)tf, (float)Math.cos(tf), (float)Math.sin(tf), 0.0f);
-		mvStack.scale(0.1f, 0.1f, 0.1f);		//delete after
-		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
+		mvMat.identity();
+		mvMat.mul(vMat);
+		mvMat.mul(mMat);
+
+		// cube object
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
-		mvStack.popMatrix();
+
+
+		mMat.identity();
+		mMat.translation(trapeLocX, trapeLocY, trapeLocZ);
+		mMat.translate((float)Math.sin(tf)*4.0f, 0.0f, (float)Math.cos(tf)*4.0f);
+		mMat.rotate((float)tf, 0.0f, 1.0f, 0.0f);
+
+		mvMat.identity();
+		mvMat.mul(vMat);
+		mvMat.mul(mMat);
 
 		// trapezoidal prism object
-		mvStack.pushMatrix();			//push child matrix
-		mvStack.translate((float)Math.sin(tf)*4.0f, 0.0f, (float)Math.cos(tf)*4.0f);
-		mvStack.pushMatrix();
-		mvStack.rotate((float)tf, 0.0f, 1.0f, 0.0f);
-		mvStack.scale(0.6f, 0.6f, 0.6f);
-		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
-		mvStack.popMatrix();
 
-		// mini trapezoid prism
-		mvStack.pushMatrix();
-		mvStack.translate((float)Math.cos(tf), (float)Math.sin(tf), 0);
-		mvStack.rotate((float)tf, 0.0f, 0.0f, 1.0f);
-		mvStack.scale(0.2f, 0.2f, 0.2f);
-		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
-		mvStack.popMatrix();  
-		mvStack.popMatrix();  
-		mvStack.popMatrix();
-		mvStack.popMatrix();
+		//gl.drawarrays myModel.getnumvertices
 
 	}
 
@@ -136,10 +115,14 @@ public class Code extends JFrame implements GLEventListener
 	{	
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		startTime = System.currentTimeMillis();
-		renderingProgram = Utils.createShaderProgram("a2/vertShader.glsl", "a2/fragShader.glsl");
+		axesProgram = Utils.createShaderProgram("a2/vertShaderAxes.glsl", "a2/fragShaderAxes.glsl");
+		objectProgram = Utils.createShaderProgram("a2/vertShader.glsl", "a2/fragShader.glsl");
 		setupVertices();
 		
 		cameraX = 0.0f; cameraY = 0.0f; cameraZ = 10.0f;
+		cubeLocX = 0.0f; cubeLocY = -2.0f; cubeLocZ = 0.0f;
+		trapeLocX = 3.0f; trapeLocY = 0.0f; trapeLocZ = 0.0f;
+		
 	}
 
 	private void setupVertices()
@@ -204,6 +187,8 @@ public class Code extends JFrame implements GLEventListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		FloatBuffer zAxisBuf = Buffers.newDirectFloatBuffer(zAxis);
 		gl.glBufferData(GL_ARRAY_BUFFER, xAxisBuf.limit()*4, zAxisBuf, GL_STATIC_DRAW);
+
+
 	}
 
 	public static void main(String[] args) { new Code(); }
