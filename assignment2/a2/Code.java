@@ -16,7 +16,7 @@ public class Code extends JFrame implements GLEventListener
 	private GLCanvas myCanvas;
 	private int renderingProgram;
 	private int vao[] = new int[1];
-	private int vbo[] = new int[2];
+	private int vbo[] = new int[5];
 	private double startTime = 0.0;
 	private double elapsedTime;
 	private double tf;
@@ -24,8 +24,11 @@ public class Code extends JFrame implements GLEventListener
 
 	// allocate variables for display() function
 	private FloatBuffer vals = Buffers.newDirectFloatBuffer(16);  // buffer for transfering matrix to uniform
-	private Matrix4fStack mvStack = new Matrix4fStack(5);	//model-view matrix stack
+	private Matrix4fStack mvStack = new Matrix4fStack(8);	//model-view matrix stack
 	private Matrix4f pMat = new Matrix4f();  // perspective matrix
+	private Matrix4f vMat = new Matrix4f();  // view matrix
+	private Matrix4f mMat = new Matrix4f();  // model matrix
+	private Matrix4f mvMat = new Matrix4f(); // model-view matrix
 	private int mvLoc, pLoc;
 	private float aspect;
 
@@ -63,13 +66,33 @@ public class Code extends JFrame implements GLEventListener
 
 		// push view matrix initial empty state
 		mvStack.pushMatrix();
-		mvStack.translate(-cameraX, -cameraY, -cameraZ);		//moves matrix to camera location
+		mvStack.translate(-cameraX, -cameraY, -cameraZ);		// moves matrix to camera location
+
+		// x-axis render
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		gl.glDrawArrays(GL_LINES, 0, 2);
+		// y-axis render
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		gl.glDrawArrays(GL_LINES, 0, 2);
+		// z-axis render
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		gl.glDrawArrays(GL_LINES, 0, 2);
 
 		// parent cube object
 		mvStack.pushMatrix();			//push parent matrix
 		mvStack.translate(0.0f, 0.0f, 0.0f);
 		mvStack.pushMatrix();
 		mvStack.rotate((float)tf, (float)Math.cos(tf), (float)Math.sin(tf), 0.0f);
+		mvStack.scale(0.1f, 0.1f, 0.1f);		//delete after
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvStack.get(vals));
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
@@ -106,6 +129,7 @@ public class Code extends JFrame implements GLEventListener
 		mvStack.popMatrix();  
 		mvStack.popMatrix();
 		mvStack.popMatrix();
+
 	}
 
 	public void init(GLAutoDrawable drawable)
@@ -121,6 +145,10 @@ public class Code extends JFrame implements GLEventListener
 	private void setupVertices()
 	{	
 		GL4 gl = (GL4) GLContext.getCurrentGL();
+
+		float[] xAxis = { 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f };
+		float[] yAxis = { 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f };
+		float[] zAxis = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
 
 		// 36 vertices of the 12 triangles making up a 2 x 2 x 2 cube centered at the origin
 		float[] cubePositions =
@@ -166,6 +194,16 @@ public class Code extends JFrame implements GLEventListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 		FloatBuffer tpzBuf = Buffers.newDirectFloatBuffer(trapezoidPositions);
 		gl.glBufferData(GL_ARRAY_BUFFER, tpzBuf.limit()*4, tpzBuf, GL_STATIC_DRAW);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		FloatBuffer xAxisBuf = Buffers.newDirectFloatBuffer(xAxis);
+		gl.glBufferData(GL_ARRAY_BUFFER, xAxisBuf.limit()*4, xAxisBuf, GL_STATIC_DRAW);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+		FloatBuffer yAxisBuf = Buffers.newDirectFloatBuffer(yAxis);
+		gl.glBufferData(GL_ARRAY_BUFFER, xAxisBuf.limit()*4, yAxisBuf, GL_STATIC_DRAW);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+		FloatBuffer zAxisBuf = Buffers.newDirectFloatBuffer(zAxis);
+		gl.glBufferData(GL_ARRAY_BUFFER, xAxisBuf.limit()*4, zAxisBuf, GL_STATIC_DRAW);
 	}
 
 	public static void main(String[] args) { new Code(); }
