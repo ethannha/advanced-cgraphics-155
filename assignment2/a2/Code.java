@@ -23,12 +23,12 @@ public class Code extends JFrame implements GLEventListener
 	private double elapsedTime;
 	private double tf;
 	private float cameraX, cameraY, cameraZ;
-	private float orientX, orientY, orientZ;
 	private float cubeLocX, cubeLocY, cubeLocZ;
 	private float trapeLocX, trapeLocY, trapeLocZ;
 	private float objLocX, objLocY, objLocZ;
 	private Camera cam = new Camera();
 	private boolean axesOn;
+	private int textureScaleLocation;
 
 	// allocate variables for display() function
 	private FloatBuffer vals = Buffers.newDirectFloatBuffer(16);  // buffer for transfering matrix to uniform
@@ -42,6 +42,7 @@ public class Code extends JFrame implements GLEventListener
 	// object variables
 	private int tileTexture;
 	private int dolphinTexture;
+	private int planeTexture;
 	private int numObjVertices;
 	private ImportedModel myModel;
 
@@ -86,34 +87,52 @@ public class Code extends JFrame implements GLEventListener
 		pLoc = gl.glGetUniformLocation(objectProgram, "p_matrix");
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
-		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
+		pMat.setPerspective((float) Math.toRadians(30.0f), aspect, 0.1f, 1000.0f);
 
-		// camera location and orientation
+		// camera location
+		//cam.setLocation(cameraX, cameraY, cameraZ);
 		cameraX = cam.getX(); cameraY = cam.getY(); cameraZ = cam.getZ();
-		orientX = cam.getRX(); orientY = cam.getRY(); orientZ = cam.getRZ();
+		Matrix4f viewTransform = new Matrix4f();
+		viewTransform = cam.getViewTransform();
+		//System.out.println("(getmethods " + cam.getX() + ", " + cam.getY() + ", " + cam.getZ() + ")");
+		//System.out.println("(camVar " + cameraX + ", " + cameraY + ", " + cameraZ + ")");
+		vMat.identity();
+		vMat.translation(-cameraX, -cameraY, -cameraZ);
+		//vMat = viewTransform;
 
-		//System.out.println("(" + cam.getX() + ", " + cam.getY() + ", " + cam.getZ() + ")");
-		vMat.identity().translation(-cameraX, -cameraY, -cameraZ);
-		vMat.rotate(-orientX, -orientY, -orientZ, 0.0f);
 
-		// cube object
-		// mMat.identity().translation(0.0f, -22.0f, 0.0f);
-		// mMat.scale(20.0f, 20.0f, 50.0f);
-		// mvMat.identity();
-		// mvMat.mul(vMat);
-		// mvMat.mul(mMat);
-		// gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
-		// gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		// // associate VBO with the corresponding vertex attribute in the vertex shader
-		// gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-		// gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		// gl.glEnableVertexAttribArray(0);
-		// //adjust OpenGL and draw cube
-		// gl.glEnable(GL_DEPTH_TEST);
- 		// gl.glDepthFunc(GL_LEQUAL);
-		// gl.glDrawArrays(GL_TRIANGLES, 0, 36);
+		// plane huge cube object
+		mMat.identity().translation(0.0f, -25.0f, 0.0f);
+		mMat.scale(20.0f, 20.0f, 50.0f);
+		mvMat.identity();
+		mvMat.mul(vMat);
+		mvMat.mul(mMat);
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 
-		// cube object
+		// get the location of uniform variable "textureScale" in the shader program
+        textureScaleLocation = gl.glGetUniformLocation(objectProgram, "textureScale");
+        // set the value "textureScale" to 8.0f
+        gl.glUniform1f(textureScaleLocation, 8.0f);
+
+		// associate VBO with the corresponding vertex attribute in the vertex shader
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+		//texture
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, planeTexture);
+		//adjust OpenGL and draw cube
+		gl.glEnable(GL_DEPTH_TEST);
+ 		gl.glDepthFunc(GL_LEQUAL);
+		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
+
+		
+		// small cube object
 		mMat.identity().translation(cubeLocX, cubeLocY, cubeLocZ);
 		mMat.rotate((float)tf, (float)Math.cos(tf), (float)Math.sin(tf), 0.0f);
 		mvMat.identity();
@@ -121,6 +140,10 @@ public class Code extends JFrame implements GLEventListener
 		mvMat.mul(mMat);
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+
+		// change scale back to 1.0f
+		gl.glUniform1f(textureScaleLocation, 1.0f);
+
 		// associate VBO with the corresponding vertex attribute in the vertex shader
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
@@ -147,7 +170,7 @@ public class Code extends JFrame implements GLEventListener
 		mvMat.mul(mMat);
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 		gl.glEnable(GL_DEPTH_TEST);
@@ -165,11 +188,11 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
 
@@ -195,6 +218,7 @@ public class Code extends JFrame implements GLEventListener
 		myModel = new ImportedModel("dolphinHighPoly.obj");
 		setupVertices();
 		
+		cameraX = 0.0f; cameraY = 0.0f; cameraZ = 10.0f;
 		cubeLocX = 0.0f; cubeLocY = -2.0f; cubeLocZ = 0.0f;
 		trapeLocX = 3.0f; trapeLocY = 0.0f; trapeLocZ = 0.0f;
 		objLocX = 0.0f; objLocY = 0.0f; objLocZ = 0.0f;
@@ -202,6 +226,8 @@ public class Code extends JFrame implements GLEventListener
 
 		tileTexture = Utils.loadTextureAWT("floor_color.jpg");
 		dolphinTexture = Utils.loadTextureAWT("Dolphin_HighPolyUV.png");
+		planeTexture = Utils.loadTextureAWT("pepe_tile.jpg");
+
 		
 	}
 
@@ -227,13 +253,26 @@ public class Code extends JFrame implements GLEventListener
 
 		float[] cubeTextureCoordinates =
 		{	
-			0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-			0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-			0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-			0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-			0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f,
-			0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f
+			0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+			1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+
+			1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f,
+			1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+
+			1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f,
+			1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f,	//this
+
+			1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 0.0f,
+			1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+
+			0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+			1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f,
+
+			0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+			1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f
 		};
+
+		
 
 		// 36 vertices of 12 triangles as well to create a trapezoidal prism
 		float[] trapezoidPositions = 
@@ -283,22 +322,26 @@ public class Code extends JFrame implements GLEventListener
 		gl.glBufferData(GL_ARRAY_BUFFER, cubeBuf.limit()*4, cubeBuf, GL_STATIC_DRAW);
 
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-		FloatBuffer texBuf1 = Buffers.newDirectFloatBuffer(cubeTextureCoordinates);
-		gl.glBufferData(GL_ARRAY_BUFFER, texBuf1.limit()*4, texBuf1, GL_STATIC_DRAW);
+		FloatBuffer smallCubeBuf = Buffers.newDirectFloatBuffer(cubeTextureCoordinates);
+		gl.glBufferData(GL_ARRAY_BUFFER, smallCubeBuf.limit()*4, smallCubeBuf, GL_STATIC_DRAW);
 
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		FloatBuffer bigCubeBuf = Buffers.newDirectFloatBuffer(cubeTextureCoordinates);
+		gl.glBufferData(GL_ARRAY_BUFFER, bigCubeBuf.limit()*4, bigCubeBuf, GL_STATIC_DRAW);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
 		FloatBuffer tpzBuf = Buffers.newDirectFloatBuffer(trapezoidPositions);
 		gl.glBufferData(GL_ARRAY_BUFFER, tpzBuf.limit()*4, tpzBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(pvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit()*4, vertBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
 		FloatBuffer texBuf = Buffers.newDirectFloatBuffer(tvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, texBuf.limit()*4, texBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
 		FloatBuffer norBuf = Buffers.newDirectFloatBuffer(nvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, norBuf.limit()*4,norBuf, GL_STATIC_DRAW);
 
@@ -312,28 +355,28 @@ public class Code extends JFrame implements GLEventListener
 		myCanvas.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent e) {
 				if (e.getKeyCode() == KeyEvent.VK_W) {
-					cam.moveForward(0.1f);
+					cam.moveForward(1.0f);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_A) {
-					cam.strafeLeft(0.1f);
+					cam.strafeLeft(1.0f);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_S) {
-					cam.moveBackward(0.1f);
+					cam.moveBackward(1.0f);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_D) {
-					cam.strafeRight(0.1f);
+					cam.strafeRight(1.0f);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_Q) {
-					cam.moveUpward(0.1f);
+					cam.moveUpward(1.0f);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_E) {
-					cam.moveDownward(0.1f);
+					cam.moveDownward(1.0f);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-					cam.panLeft(0.1f);
+					cam.panLeft(1.0f);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-					cam.panRight(0.1f);
+					cam.panRight(1.0f);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_UP) {
 					cam.pitchUp(1.0f);

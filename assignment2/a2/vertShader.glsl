@@ -7,10 +7,11 @@ out vec2 tc;
 uniform mat4 mv_matrix;
 uniform mat4 p_matrix;
 layout (binding=0) uniform sampler2D s;
+uniform float textureScale;
 
 void main(void)
 {
 	gl_Position = p_matrix * mv_matrix * vec4(position,1.0);
-	tc = tex_coord;
+	tc = tex_coord * textureScale;
 	
 } 
