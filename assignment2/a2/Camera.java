@@ -14,7 +14,7 @@ public class Camera
     {	
         viewTransform = new Matrix4f();
         rotation = new Matrix4f();
-        location = new Vector3f(0.0f,0.0f,10.0f);
+        location = new Vector3f();
 
         u = new Vector3f(1.0f, 0.0f, 0.0f);
         v = new Vector3f(0.0f, 1.0f, 0.0f);
@@ -55,14 +55,6 @@ public class Camera
     
     public void setViewTransform() 
     {
-        n.x = (float) Math.cos(Math.toRadians(rotationVector.x)) * (float) Math.sin(Math.toRadians(rotationVector.y));
-        n.y = (float) Math.sin(Math.toRadians(rotationVector.x));
-        n.z = (float) Math.cos(Math.toRadians(rotationVector.x)) * (float) Math.cos(Math.toRadians(rotationVector.y));
-
-        u.x = (float) Math.sin(Math.toRadians(rotationVector.y - 90));
-        u.y = 0;
-        u.z = (float) Math.cos(Math.toRadians(rotationVector.y - 90));
-
         rotation.set(
             u.x, u.y, u.z, 0,
             v.x, v.y, v.z, 0,
@@ -87,8 +79,7 @@ public class Camera
         vectorN.mul(factor); 
         Vector3f newPosition = this.getLocation().add(0, 0, vectorN.z()); 
         this.setLocation(newPosition); 
-        //setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
     }
     
     /** camera moves backward */
@@ -97,8 +88,7 @@ public class Camera
         vectorN.mul(factor); 
         Vector3f newPosition = this.getLocation().add(0, 0, -vectorN.z()); 
         this.setLocation(newPosition); 
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
     }
 
     /** camera strafes left */
@@ -107,8 +97,7 @@ public class Camera
         vectorU.mul(factor); 
         Vector3f newPosition = this.getLocation().add(-vectorU.x(), 0, 0); 
         this.setLocation(newPosition); 
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
     }
 
     /** camera strafes right */
@@ -117,8 +106,7 @@ public class Camera
         vectorU.mul(factor); 
         Vector3f newPosition = this.getLocation().add(vectorU.x(), 0, 0); 
         this.setLocation(newPosition);  
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
     }
 
     /** camera moves upwards */
@@ -127,8 +115,7 @@ public class Camera
         vectorV.mul(factor); 
         Vector3f newPosition = this.getLocation().add(0, vectorV.y(), 0); 
         this.setLocation(newPosition); 
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
     }
 
     /** camera moves downwards */
@@ -137,8 +124,7 @@ public class Camera
         vectorV.mul(factor); 
         Vector3f newPosition = this.getLocation().add(0, -vectorV.y(), 0); 
         this.setLocation(newPosition); 
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
     }
 
     /** turns camera to the left */
@@ -147,8 +133,7 @@ public class Camera
         vectorU.mul(factor); 
         Vector3f newPosition = this.getLocation().add(-vectorU.x(), -vectorU.y(), -vectorU.z()); 
         this.setLocation(newPosition); 
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
     }
 
     /** turns camera to the right */
@@ -157,8 +142,7 @@ public class Camera
         vectorU.mul(factor); 
         Vector3f newPosition = this.getLocation().add(vectorU.x(), vectorU.y(), vectorU.z()); 
         this.setLocation(newPosition); 
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
     }
 
     /** camera pitches upwards */
@@ -167,8 +151,7 @@ public class Camera
         float radians = (float)Math.toRadians(-degree);
         Matrix4f newRotation = new Matrix4f().rotate(radians, u);
         this.setRotation(rotation.mul(newRotation));
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
 	}
 
     /** camera pitches downwards */
@@ -177,7 +160,6 @@ public class Camera
         float radians = (float)Math.toRadians(degree);
         Matrix4f newRotation = new Matrix4f().rotate(radians, u);
         this.setRotation(rotation.mul(newRotation));
-        // setViewTransform();
-        System.out.println(location.x + ", " + location.y + ", " + location.z);
+        //System.out.println(location.x + ", " + location.y + ", " + location.z);
 	}
 }
