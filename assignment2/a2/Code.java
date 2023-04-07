@@ -22,12 +22,15 @@ public class Code extends JFrame implements GLEventListener
 	private double startTime = 0.0;
 	private double elapsedTime;
 	private double tf;
+	private float deltaTime = 0.0f;
+	private long lastFrame;
+
 	private float cameraX, cameraY, cameraZ;
 	private float bigCubeLocX, bigCubeLocY, bigCubeLocZ;
 	private float cubeLocX, cubeLocY, cubeLocZ;
 	private float trapeLocX, trapeLocY, trapeLocZ;
 	private float objLocX, objLocY, objLocZ;
-	private Camera cam = new Camera();
+	private Camera cam;
 	private boolean axesOn;
 	private int textureScaleLocation;
 
@@ -61,30 +64,60 @@ public class Code extends JFrame implements GLEventListener
 		setKeybinds(myCanvas);
 	}
 
+	public void init(GLAutoDrawable drawable)
+	{	
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		startTime = System.currentTimeMillis();
+		lastFrame = System.nanoTime();
+		axesProgram = Utils.createShaderProgram("a2/vertShaderAxes.glsl", "a2/fragShaderAxes.glsl");
+		objectProgram = Utils.createShaderProgram("a2/vertShader.glsl", "a2/fragShader.glsl");
+		myModel = new ImportedModel("assets/models/dolphinHighPoly.obj");
+		setupVertices();
+		
+		cameraX = 0.0f; cameraY = 0.0f; cameraZ = 23.0f;
+		Vector3f camLoc = new Vector3f(cameraX, cameraY, cameraZ);
+		cam = new Camera(camLoc);
+
+		bigCubeLocX = 0.0f; bigCubeLocY = -21.0f; bigCubeLocZ = 0.0f;
+		cubeLocX = -4.0f; cubeLocY = 4.0f; cubeLocZ = 0.0f;
+		trapeLocX = 0.0f; trapeLocY = 1.0f; trapeLocZ = -3.0f;
+		objLocX = 0.0f; objLocY = 0.0f; objLocZ = 0.0f;
+		axesOn = true;
+
+		tileTexture = Utils.loadTextureAWT("assets/textures/floor_color.jpg");
+		dolphinTexture = Utils.loadTextureAWT("assets/textures/Dolphin_HighPolyUV.png");
+		planeTexture = Utils.loadTextureAWT("assets/textures/pepe_tile.jpg");
+		floralTexture = Utils.loadTextureAWT("assets/textures/floral.jpg");
+	}
+
 	public void display(GLAutoDrawable drawable)
 	{	
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		gl.glClear(GL_COLOR_BUFFER_BIT);
 		gl.glClear(GL_DEPTH_BUFFER_BIT);
 
-		// time
+		// ====== TIME ELAPSED AND FRAMES SET UP ======
 		elapsedTime = System.currentTimeMillis() - startTime;
 		tf = elapsedTime/1000.0;
 		
+		long currentFrame = System.nanoTime();
+		deltaTime = (float) ((currentFrame - lastFrame) / 1000000000.0);
+		lastFrame = currentFrame;
 
-		// render axes program
+
+		// ======= RENDER AXES PROGRAM =======
 		gl.glUseProgram(axesProgram);
 		axesmvLoc = gl.glGetUniformLocation(axesProgram, "mv_matrix");
 		axespLoc = gl.glGetUniformLocation(axesProgram, "p_matrix");
-		// axes lines drawn
+		// draw axes lines
 		gl.glUniformMatrix4fv(axesmvLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(axespLoc, 1, false, pMat.get(vals));
-
 		if(axesOn == true) {
 			gl.glDrawArrays(GL_LINES, 0, 6);
 		}
 
-		// render object program
+
+		// ======= RENDER OBJECTS PROGRAM =======
 		gl.glUseProgram(objectProgram);
 		mvLoc = gl.glGetUniformLocation(objectProgram, "mv_matrix");
 		pLoc = gl.glGetUniformLocation(objectProgram, "p_matrix");
@@ -92,13 +125,14 @@ public class Code extends JFrame implements GLEventListener
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
 		pMat.setPerspective((float) Math.toRadians(30.0f), aspect, 0.1f, 1000.0f);
 
-		// camera location
-		cameraX = cam.getX(); cameraY = cam.getY(); cameraZ = cam.getZ();
+
+		// ======== CAMERA/VIEW MATRIX SET UP ========
 		vMat.identity();
-		vMat.translation(-cameraX, -cameraY, -cameraZ);
+		vMat = cam.getViewMatrix();
 
 
-		// plane huge cube object
+		// ======== MODELS AND MODEL-VIEW MATRICES SET UP ========
+		// ======================================================================= huge cube object
 		mMat.identity().translation(bigCubeLocX, bigCubeLocY, bigCubeLocZ);
 		mMat.scale(20.0f, 20.0f, 20.0f);
 		mvMat.identity();
@@ -120,6 +154,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
+
 		//texture
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, planeTexture);
@@ -128,9 +163,8 @@ public class Code extends JFrame implements GLEventListener
  		gl.glDepthFunc(GL_LEQUAL);
 		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
 
-		
 
-		// small cube object
+		// ======================================================================= small cube object
 		mMat.identity().translation(cubeLocX, cubeLocY, cubeLocZ);
 		mMat.rotate((float)tf, (float)Math.cos(tf), (float)Math.sin(tf), 0.0f);
 		mMat.scale(1.2f, 1.2f, 1.2f);
@@ -151,6 +185,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
+
 		//texture
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, tileTexture);
@@ -160,8 +195,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
-
-		// trapezoidal prism object
+		// ======================================================================= trapezoidal prism object
 		mMat.identity();
 		mMat.translation(trapeLocX, trapeLocY, trapeLocZ);
 		mMat.scale(1.2f, 1.2f, 1.2f);
@@ -173,7 +207,6 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 
-
 		// associate VBO with the corresponding vertex attribute in the vertex shader
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
@@ -182,6 +215,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
+
 		//texture
 		gl.glActiveTexture(GL_TEXTURE0);
 		gl.glBindTexture(GL_TEXTURE_2D, floralTexture);
@@ -190,9 +224,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
 
 
-
-
-		// draw dolphin obj file
+		// ======================================================================= dolphin obj file
 		mMat.identity().translation(objLocX, objLocY, objLocZ);
 		mMat.rotate((float)tf, 0.0f, 1.0f, 0.0f);
 		mMat.scale(1.3f, 1.3f, 1.3f);
@@ -221,30 +253,7 @@ public class Code extends JFrame implements GLEventListener
 	
 	}
 
-	public void init(GLAutoDrawable drawable)
-	{	
-		GL4 gl = (GL4) GLContext.getCurrentGL();
-		startTime = System.currentTimeMillis();
-		axesProgram = Utils.createShaderProgram("a2/vertShaderAxes.glsl", "a2/fragShaderAxes.glsl");
-		objectProgram = Utils.createShaderProgram("a2/vertShader.glsl", "a2/fragShader.glsl");
-		myModel = new ImportedModel("assets/models/dolphinHighPoly.obj");
-		setupVertices();
-		
-		cameraX = 0.0f; cameraY = 0.0f; cameraZ = 23.0f;
-		cam.setLocation(cameraX, cameraY, cameraZ);
-		bigCubeLocX = 0.0f; bigCubeLocY = -21.0f; bigCubeLocZ = 0.0f;
-		cubeLocX = -4.0f; cubeLocY = 4.0f; cubeLocZ = 0.0f;
-		trapeLocX = 0.0f; trapeLocY = 1.0f; trapeLocZ = -3.0f;
-		objLocX = 0.0f; objLocY = 0.0f; objLocZ = 0.0f;
-		axesOn = true;
-
-		tileTexture = Utils.loadTextureAWT("assets/textures/floor_color.jpg");
-		dolphinTexture = Utils.loadTextureAWT("assets/textures/Dolphin_HighPolyUV.png");
-		planeTexture = Utils.loadTextureAWT("assets/textures/pepe_tile.jpg");
-		floralTexture = Utils.loadTextureAWT("assets/textures/floral.jpg");
-
-		
-	}
+	
 
 	private void setupVertices()
 	{	
@@ -265,7 +274,6 @@ public class Code extends JFrame implements GLEventListener
 			-1.0f,  1.0f, -1.0f, 1.0f,  1.0f, -1.0f, 1.0f,  1.0f,  1.0f,
 			1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f
 		};
-
 		float[] cubeTextureCoordinates =
 		{	
 			0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
@@ -286,7 +294,6 @@ public class Code extends JFrame implements GLEventListener
 			0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
 			1.0f, 1.0f, 1.0f, 0.0f, 0.0f, 0.0f
 		};
-
 		
 
 		// 36 vertices of 12 triangles as well to create a trapezoidal prism
@@ -305,7 +312,6 @@ public class Code extends JFrame implements GLEventListener
 			-0.5f, 0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 		//top face
 			0.5f, 0.5f, 0.5f, -0.5f, 0.5f, -0.5f, -0.5f, 0.5f, 0.5f
 		};
-
 		float[] trapezoidTextureCoordinates =
 		{	
 			0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f,
@@ -328,7 +334,7 @@ public class Code extends JFrame implements GLEventListener
 		};
 
 
-		//obj
+		//obj file vertices
 		numObjVertices = myModel.getNumVertices();
 		Vector3f[] vertices = myModel.getVertices();
 		Vector2f[] texCoords = myModel.getTexCoords();
@@ -349,7 +355,7 @@ public class Code extends JFrame implements GLEventListener
 			nvalues[i*3+2] = (float) (normals[i]).z();
 		}
 
-
+		// ======= VAOs & VBOs =======
 		gl.glGenVertexArrays(vao.length, vao, 0);
 		gl.glBindVertexArray(vao[0]);
 		gl.glGenBuffers(vbo.length, vbo, 0);
@@ -388,42 +394,38 @@ public class Code extends JFrame implements GLEventListener
 
 	}
 
-	public Camera getCamera() {
-		return cam;
-	}
-
 	public void setKeybinds(GLCanvas myCanvas) {
 		myCanvas.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent e) {
 				if (e.getKeyCode() == KeyEvent.VK_W) {
-					cam.moveForward(1.0f);
+					cam.moveForward(5.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_A) {
-					cam.strafeLeft(1.0f);
+					cam.strafeLeft(5.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_S) {
-					cam.moveBackward(1.0f);
+					cam.moveBackward(5.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_D) {
-					cam.strafeRight(1.0f);
+					cam.strafeRight(5.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_Q) {
-					cam.moveUpward(1.0f);
+					cam.moveUpward(5.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_E) {
-					cam.moveDownward(1.0f);
+					cam.moveDownward(5.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-					cam.panLeft(1.0f);
+					cam.pan(40.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-					cam.panRight(1.0f);
+					cam.pan(-40.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_UP) {
-					cam.pitchUp(1.0f);
+					cam.pitch(40.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_DOWN) {
-					cam.pitchDown(1.0f);
+					cam.pitch(-40.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_SPACE) {
 					axesOn = !axesOn;
