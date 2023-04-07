@@ -76,17 +76,19 @@ public class Camera
     /** camera moves upwards */
     public void moveUpward(float distance)
     {
-        Vector3f result = new Vector3f(V);
+        Vector3f result = new Vector3f(defaultV);
         result.mul(distance);
         location.add(result);
+        targetPos.add(result);
     }
 
     /** camera moves downwards */
     public void moveDownward(float distance)
     {
-        Vector3f result = new Vector3f(V);
+        Vector3f result = new Vector3f(defaultV);
         result.mul(distance);
         location.sub(result);
+        targetPos.sub(result);
     }
 
     /** turns camera left or right */
