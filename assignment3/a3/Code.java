@@ -16,7 +16,7 @@ import org.joml.*;
 public class Code extends JFrame implements GLEventListener
 {	
 	private GLCanvas myCanvas;
-	private int objectProgram, axesProgram;
+	private int objectProgram, axesProgram, renderingProgramCubeMap;
 	private int vao[] = new int[1];
 	private int vbo[] = new int[9];
 	private double startTime = 0.0;
@@ -40,7 +40,7 @@ public class Code extends JFrame implements GLEventListener
 	private Matrix4f vMat = new Matrix4f();  // view matrix
 	private Matrix4f mMat = new Matrix4f();  // model matrix
 	private Matrix4f mvMat = new Matrix4f(); // model-view matrix
-	private int mvLoc, pLoc, axesmvLoc, axespLoc;
+	private int mvLoc, pLoc, axesmvLoc, axespLoc, cubemvLoc, cubepLoc;
 	private float aspect;
 
 	// object variables
@@ -48,6 +48,7 @@ public class Code extends JFrame implements GLEventListener
 	private int dolphinTexture;
 	private int planeTexture;
 	private int floralTexture;
+	private int skyboxTexture;
 
 	private int numObjVertices;
 	private ImportedModel myModel;
@@ -68,9 +69,10 @@ public class Code extends JFrame implements GLEventListener
 	{	
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		startTime = System.currentTimeMillis();
-		lastFrame = System.nanoTime();
+		lastFrame = System.currentTimeMillis();
 		axesProgram = Utils.createShaderProgram("a3/vertShaderAxes.glsl", "a3/fragShaderAxes.glsl");
 		objectProgram = Utils.createShaderProgram("a3/vertShader.glsl", "a3/fragShader.glsl");
+		renderingProgramCubeMap = Utils.createShaderProgram("a3/vertCShader.glsl", "a3/fragCShader.glsl");
 		myModel = new ImportedModel("assets/models/dolphinHighPoly.obj");
 		setupVertices();
 		
@@ -88,6 +90,8 @@ public class Code extends JFrame implements GLEventListener
 		dolphinTexture = Utils.loadTextureAWT("assets/textures/Dolphin_HighPolyUV.png");
 		planeTexture = Utils.loadTextureAWT("assets/textures/pepe_tile.jpg");
 		floralTexture = Utils.loadTextureAWT("assets/textures/floral.jpg");
+		skyboxTexture = Utils.loadCubeMap("assets/cubeMap");
+		gl.glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 	}
 
 	public void display(GLAutoDrawable drawable)
@@ -100,9 +104,33 @@ public class Code extends JFrame implements GLEventListener
 		elapsedTime = System.currentTimeMillis() - startTime;
 		tf = elapsedTime/1000.0;
 		
-		long currentFrame = System.nanoTime();
-		deltaTime = (float) ((currentFrame - lastFrame) / 1000000000.0);
+		long currentFrame = System.currentTimeMillis();
+		deltaTime = (float) ((currentFrame - lastFrame) / 1000.0);
 		lastFrame = currentFrame;
+
+		// ====== RENDER CUBE MAP PROGRAM ======
+		gl.glUseProgram(renderingProgramCubeMap);
+
+		cubemvLoc = gl.glGetUniformLocation(renderingProgramCubeMap, "mv_matrix");
+		gl.glUniformMatrix4fv(mvLoc, 1, false, vMat.get(vals));
+
+		cubepLoc = gl.glGetUniformLocation(renderingProgramCubeMap, "p_matrix");
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		
+		// ======================================================================= render skybox
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_CUBE_MAP, skyboxTexture);
+
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);	     // cube is CW, but we are viewing the inside
+		gl.glDisable(GL_DEPTH_TEST);
+		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
+		gl.glEnable(GL_DEPTH_TEST);
 
 
 		// ======= RENDER AXES PROGRAM =======
@@ -123,8 +151,9 @@ public class Code extends JFrame implements GLEventListener
 		pLoc = gl.glGetUniformLocation(objectProgram, "p_matrix");
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
-		pMat.setPerspective((float) Math.toRadians(30.0f), aspect, 0.1f, 1000.0f);
-
+		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
+		
+		gl.glDisable(GL_CULL_FACE);		//enable faces for objects
 
 		// ======== CAMERA/VIEW MATRIX SET UP ========
 		vMat.identity();
@@ -147,11 +176,11 @@ public class Code extends JFrame implements GLEventListener
         gl.glUniform1f(textureScaleLocation, 8.0f);
 
 		// associate VBO with the corresponding vertex attribute in the vertex shader
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
 
@@ -178,11 +207,11 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniform1f(textureScaleLocation, 1.0f);
 
 		// associate VBO with the corresponding vertex attribute in the vertex shader
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
 
@@ -208,11 +237,11 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 
 		// associate VBO with the corresponding vertex attribute in the vertex shader
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
 
@@ -236,11 +265,11 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[7]);
 		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(1);
 
@@ -249,7 +278,11 @@ public class Code extends JFrame implements GLEventListener
 
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDepthFunc(GL_LEQUAL);
+		
 		gl.glDrawArrays(GL_TRIANGLES, 0, myModel.getNumVertices());
+
+
+		
 	
 	}
 
@@ -361,36 +394,41 @@ public class Code extends JFrame implements GLEventListener
 		gl.glGenBuffers(vbo.length, vbo, 0);
 
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		FloatBuffer cvertBuf = Buffers.newDirectFloatBuffer(cubePositions);
+		gl.glBufferData(GL_ARRAY_BUFFER, cvertBuf.limit()*4, cvertBuf, GL_STATIC_DRAW);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 		FloatBuffer cubeBuf = Buffers.newDirectFloatBuffer(cubePositions);
 		gl.glBufferData(GL_ARRAY_BUFFER, cubeBuf.limit()*4, cubeBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
 		FloatBuffer smallCubeBuf = Buffers.newDirectFloatBuffer(cubeTextureCoordinates);
 		gl.glBufferData(GL_ARRAY_BUFFER, smallCubeBuf.limit()*4, smallCubeBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
 		FloatBuffer bigCubeBuf = Buffers.newDirectFloatBuffer(cubeTextureCoordinates);
 		gl.glBufferData(GL_ARRAY_BUFFER, bigCubeBuf.limit()*4, bigCubeBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		FloatBuffer tpzBuf = Buffers.newDirectFloatBuffer(trapezoidPositions);
 		gl.glBufferData(GL_ARRAY_BUFFER, tpzBuf.limit()*4, tpzBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
 		FloatBuffer trapTBuf = Buffers.newDirectFloatBuffer(trapezoidTextureCoordinates);
 		gl.glBufferData(GL_ARRAY_BUFFER, trapTBuf.limit()*4, trapTBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
 		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(pvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit()*4, vertBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[7]);
 		FloatBuffer texBuf = Buffers.newDirectFloatBuffer(tvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, texBuf.limit()*4, texBuf, GL_STATIC_DRAW);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[7]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
 		FloatBuffer norBuf = Buffers.newDirectFloatBuffer(nvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, norBuf.limit()*4,norBuf, GL_STATIC_DRAW);
+
 
 	}
 
@@ -398,34 +436,34 @@ public class Code extends JFrame implements GLEventListener
 		myCanvas.addKeyListener(new KeyAdapter() {
 			public void keyPressed(KeyEvent e) {
 				if (e.getKeyCode() == KeyEvent.VK_W) {
-					cam.moveForward(5.0f * deltaTime);
+					cam.moveForward(10.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_A) {
-					cam.strafeLeft(5.0f * deltaTime);
+					cam.strafeLeft(10.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_S) {
-					cam.moveBackward(5.0f * deltaTime);
+					cam.moveBackward(10.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_D) {
-					cam.strafeRight(5.0f * deltaTime);
+					cam.strafeRight(10.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_Q) {
-					cam.moveUpward(5.0f * deltaTime);
+					cam.moveUpward(10.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_E) {
-					cam.moveDownward(5.0f * deltaTime);
+					cam.moveDownward(10.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-					cam.pan(40.0f * deltaTime);
+					cam.pan(80.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-					cam.pan(-40.0f * deltaTime);
+					cam.pan(-80.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_UP) {
-					cam.pitch(40.0f * deltaTime);
+					cam.pitch(80.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_DOWN) {
-					cam.pitch(-40.0f * deltaTime);
+					cam.pitch(-80.0f * deltaTime);
 				}
 				if (e.getKeyCode() == KeyEvent.VK_SPACE) {
 					axesOn = !axesOn;
