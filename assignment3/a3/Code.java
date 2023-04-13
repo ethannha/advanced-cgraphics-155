@@ -1,6 +1,9 @@
 package a3;
 
 import java.nio.*;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Set;
 import javax.swing.*;
 import java.awt.event.*;
 import java.lang.Math;
@@ -43,7 +46,7 @@ public class Code extends JFrame implements GLEventListener
 	private float aspect;
 
 	// lighting variables
-	private Vector3f initialLightLoc = new Vector3f(0.0f, 0.0f, 0.0f);
+	private Vector3f initialLightLoc = new Vector3f();
 	private int globalAmbLoc, ambLoc, diffLoc, specLoc, posLoc, mambLoc, mdiffLoc, mspecLoc, mshiLoc;
 	private Vector3f currentLightPos = new Vector3f();
 	private float[] lightPos = new float[3];
@@ -118,6 +121,9 @@ public class Code extends JFrame implements GLEventListener
 		deltaTime = (float) ((currentFrame - lastFrame) / 1000.0);
 		lastFrame = currentFrame;
 
+		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
+		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
+
 		// ====== RENDER CUBE MAP PROGRAM ======
 		gl.glUseProgram(cubemapProgram);
 
@@ -159,27 +165,23 @@ public class Code extends JFrame implements GLEventListener
 
 		// ======= RENDER OBJECTS PROGRAM =======
 		gl.glUseProgram(objectProgram);
+		mvLoc = gl.glGetUniformLocation(objectProgram, "mv_matrix");
+		pLoc = gl.glGetUniformLocation(objectProgram, "p_matrix");
+		nLoc = gl.glGetUniformLocation(objectProgram, "norm_matrix");
 
 		// ======== CAMERA/VIEW MATRIX SET UP ========
 		vMat.identity();
 		vMat = cam.getViewMatrix();
 
-		mLoc = gl.glGetUniformLocation(objectProgram, "m_matrix");
-		vLoc = gl.glGetUniformLocation(objectProgram, "v_matrix");
-		pLoc = gl.glGetUniformLocation(objectProgram, "p_matrix");
-		nLoc = gl.glGetUniformLocation(objectProgram, "norm_matrix");
-		mvLoc = gl.glGetUniformLocation(objectProgram, "mv_matrix");
-		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
-		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
-		
-
 		// LIGHTING
+		// setup lights based on current light position
+		initialLightLoc = new Vector3f(0.0f, -1.0f, 0.0f);
 		currentLightPos.set(initialLightLoc);
-		currentLightPos.rotateAxis((float)Math.toRadians(0.3f * deltaTime), 0.0f, 0.0f, 1.0f);
+		//currentLightPos.rotateAxis((float)Math.toRadians(0.3f * deltaTime), 0.0f, 0.0f, 1.0f);
 		installLights();
 
-		mMat.invert(invTrMat);
+		// mv matrix for normal vector, is inverse transpose of mvMat
+		mvMat.invert(invTrMat);
 		invTrMat.transpose(invTrMat);
 
 		// ======== MODELS AND MODEL-VIEW MATRICES SET UP ========
@@ -190,12 +192,13 @@ public class Code extends JFrame implements GLEventListener
 		mvMat.identity();
 		mvMat.mul(vMat);
 		mvMat.mul(mMat);
+		
 
-		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		// put matrices into uniforms
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
-		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 
 		// get the location of uniform variable "textureScale" in the shader program
         textureScaleLocation = gl.glGetUniformLocation(objectProgram, "textureScale");
@@ -233,7 +236,6 @@ public class Code extends JFrame implements GLEventListener
 		mvMat.mul(mMat);
 
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
-		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
@@ -357,7 +359,10 @@ public class Code extends JFrame implements GLEventListener
 	private void installLights()
 	{	GL4 gl = (GL4) GLContext.getCurrentGL();
 		
-		lightPos[0]=currentLightPos.x(); lightPos[1]=currentLightPos.y(); lightPos[2]=currentLightPos.z();
+		currentLightPos.mulPosition(vMat);
+		lightPos[0]=currentLightPos.x();
+		lightPos[1]=currentLightPos.y();
+		lightPos[2]=currentLightPos.z();
 		
 		// get the locations of the light and material fields in the shader
 		globalAmbLoc = gl.glGetUniformLocation(objectProgram, "globalAmbient");
@@ -384,41 +389,54 @@ public class Code extends JFrame implements GLEventListener
 
 	public void setKeybinds(GLCanvas myCanvas) {
 		myCanvas.addKeyListener(new KeyAdapter() {
+			Set<Integer> pressedKeys = new HashSet<>();
+			
 			public void keyPressed(KeyEvent e) {
-				if (e.getKeyCode() == KeyEvent.VK_W) {
-					cam.moveForward(10.0f * deltaTime);
+				pressedKeys.add(e.getKeyCode());
+				
+				if (!pressedKeys.isEmpty()) {
+					for (Iterator<Integer> it = pressedKeys.iterator(); it.hasNext();) {
+						switch (it.next()) {
+							case KeyEvent.VK_W:
+								cam.moveForward(10.0f * deltaTime);
+								break;
+							case  KeyEvent.VK_A:
+								cam.strafeLeft(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_S:
+								cam.moveBackward(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_D:
+								cam.strafeRight(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_Q:
+								cam.moveUpward(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_E:
+								cam.moveDownward(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_LEFT:
+								cam.pan(80.0f * deltaTime);
+								break;
+							case KeyEvent.VK_RIGHT:
+								cam.pan(-80.0f * deltaTime);
+								break;
+							case KeyEvent.VK_UP:
+								cam.pitch(80.0f * deltaTime);
+								break;
+							case  KeyEvent.VK_DOWN:
+								cam.pitch(-80.0f * deltaTime);
+								break;
+							case KeyEvent.VK_SPACE:
+								axesOn = !axesOn;
+								break;
+						}
+					}
 				}
-				if (e.getKeyCode() == KeyEvent.VK_A) {
-					cam.strafeLeft(10.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_S) {
-					cam.moveBackward(10.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_D) {
-					cam.strafeRight(10.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_Q) {
-					cam.moveUpward(10.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_E) {
-					cam.moveDownward(10.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_LEFT) {
-					cam.pan(80.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_RIGHT) {
-					cam.pan(-80.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_UP) {
-					cam.pitch(80.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_DOWN) {
-					cam.pitch(-80.0f * deltaTime);
-				}
-				if (e.getKeyCode() == KeyEvent.VK_SPACE) {
-					axesOn = !axesOn;
-				}
-			}      
+			}
+			public void keyReleased(KeyEvent e) {
+				pressedKeys.remove(e.getKeyCode());
+			}   
 		});
 		myCanvas.setFocusable(true);
 		myCanvas.requestFocus();

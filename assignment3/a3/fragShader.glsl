@@ -3,6 +3,7 @@
 in vec3 varyingNormal;
 in vec3 varyingLightDir;
 in vec3 varyingVertPos;
+in vec3 varyingHalfVector;
 in vec2 tc;
 out vec4 color;
 
@@ -12,7 +13,6 @@ struct PositionalLight
 	vec4 specular;  
 	vec3 position;
 };
-
 struct Material
 {	vec4 ambient;  
 	vec4 diffuse;  
@@ -24,7 +24,6 @@ uniform vec4 globalAmbient;
 uniform PositionalLight light;
 uniform Material material;
 uniform mat4 mv_matrix;
-uniform mat4 m_matrix;
 uniform mat4 v_matrix;
 uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
@@ -35,15 +34,15 @@ void main(void)
 	// normalize the light, normal, and view vectors:
 	vec3 L = normalize(varyingLightDir);
 	vec3 N = normalize(varyingNormal);
-	vec3 V = normalize(-v_matrix[3].xyz - varyingVertPos);
-	
-	// compute light reflection vector, with respect N:
-	vec3 R = normalize(reflect(-L, N));
+	vec3 V = normalize(-v_matrix[3].xyz -varyingVertPos);
 	
 	// get the angle between the light and surface normal:
 	float cosTheta = dot(L,N);
 	
-	// angle between the view vector and reflected light:
+	// compute light reflection vector, with respect N:
+	vec3 R = normalize(reflect(-L, N));
+	// get angle between the normal and the halfway vector
+	vec3 H = normalize(varyingHalfVector);
 	float cosPhi = dot(V,R);
 
 	// compute ADS contributions (per pixel):
@@ -52,6 +51,6 @@ void main(void)
 	vec3 specular = light.specular.xyz * material.specular.xyz * pow(max(cosPhi,0.0), material.shininess);
 	
 	vec4 texColor = texture(s, tc);
-	vec4 finalColor = vec4((ambient + diffuse + specular), 1.0f);
-	color = finalColor * texColor;
+	vec4 lightColor = vec4((ambient + diffuse + specular), 1.0f);
+	color = (texColor * lightColor);
 }
