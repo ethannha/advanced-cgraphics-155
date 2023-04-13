@@ -16,9 +16,9 @@ import org.joml.*;
 public class Code extends JFrame implements GLEventListener
 {	
 	private GLCanvas myCanvas;
-	private int objectProgram, axesProgram, renderingProgramCubeMap, lightingProgram;
+	private int objectProgram, axesProgram, cubemapProgram;
 	private int vao[] = new int[1];
-	private int vbo[] = new int[6];
+	private int vbo[] = new int[5];
 	private double startTime = 0.0;
 	private double elapsedTime;
 	private double tf;
@@ -39,17 +39,17 @@ public class Code extends JFrame implements GLEventListener
 	private Matrix4f mMat = new Matrix4f();  // model matrix
 	private Matrix4f mvMat = new Matrix4f(); // model-view matrix
 	private Matrix4f invTrMat = new Matrix4f(); // inverse-transpose
-	private int mvLoc, pLoc, axesmvLoc, axespLoc, vLoc, nLoc;
+	private int mvLoc, pLoc, axesmvLoc, axespLoc, vLoc, nLoc, mLoc;
 	private float aspect;
 
 	// lighting variables
-	private Vector3f initialLightLoc = new Vector3f(5.0f, 2.0f, 2.0f);
+	private Vector3f initialLightLoc = new Vector3f(0.0f, 0.0f, 0.0f);
 	private int globalAmbLoc, ambLoc, diffLoc, specLoc, posLoc, mambLoc, mdiffLoc, mspecLoc, mshiLoc;
 	private Vector3f currentLightPos = new Vector3f();
 	private float[] lightPos = new float[3];
 
 	// white light properties
-	float[] globalAmbient = new float[] { 0.6f, 0.6f, 0.6f, 1.0f };
+	float[] globalAmbient = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
 	float[] lightAmbient = new float[] { 0.1f, 0.1f, 0.1f, 1.0f };
 	float[] lightDiffuse = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
 	float[] lightSpecular = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -85,16 +85,16 @@ public class Code extends JFrame implements GLEventListener
 		lastFrame = System.currentTimeMillis();
 		axesProgram = Utils.createShaderProgram("a3/vertAxesShader.glsl", "a3/fragAxesShader.glsl");
 		objectProgram = Utils.createShaderProgram("a3/vertShader.glsl", "a3/fragShader.glsl");
-		renderingProgramCubeMap = Utils.createShaderProgram("a3/vertCShader.glsl", "a3/fragCShader.glsl");
+		cubemapProgram = Utils.createShaderProgram("a3/vertCShader.glsl", "a3/fragCShader.glsl");
 		myModel = new ImportedModel("assets/models/duck.obj");
 		setupVertices();
 		
-		cameraX = 0.0f; cameraY = 0.0f; cameraZ = 23.0f;
+		cameraX = 0.0f; cameraY = 0.0f; cameraZ = 8.0f;
 		Vector3f camLoc = new Vector3f(cameraX, cameraY, cameraZ);
 		cam = new Camera(camLoc);
 
-		bigCubeLocX = 0.0f; bigCubeLocY = -21.0f; bigCubeLocZ = 0.0f;
-		objLocX = 0.0f; objLocY = 0.0f; objLocZ = 0.0f;
+		bigCubeLocX = 0.0f; bigCubeLocY = -4.0f; bigCubeLocZ = 0.0f;
+		objLocX = 0.0f; objLocY = -2.0f; objLocZ = 0.0f;
 		axesOn = true;
 
 		duckTexture = Utils.loadTextureAWT("assets/textures/duck_uv.png");
@@ -119,12 +119,12 @@ public class Code extends JFrame implements GLEventListener
 		lastFrame = currentFrame;
 
 		// ====== RENDER CUBE MAP PROGRAM ======
-		gl.glUseProgram(renderingProgramCubeMap);
+		gl.glUseProgram(cubemapProgram);
 
-		vLoc = gl.glGetUniformLocation(renderingProgramCubeMap, "v_matrix");
+		vLoc = gl.glGetUniformLocation(cubemapProgram, "v_matrix");
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 
-		pLoc = gl.glGetUniformLocation(renderingProgramCubeMap, "p_matrix");
+		pLoc = gl.glGetUniformLocation(cubemapProgram, "p_matrix");
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		
 		// ======================================================================= render skybox
@@ -142,6 +142,8 @@ public class Code extends JFrame implements GLEventListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
 		gl.glEnable(GL_DEPTH_TEST);
 
+		gl.glDisable(GL_CULL_FACE);		//enable faces for objects
+
 
 		// ======= RENDER AXES PROGRAM =======
 		gl.glUseProgram(axesProgram);
@@ -157,45 +159,48 @@ public class Code extends JFrame implements GLEventListener
 
 		// ======= RENDER OBJECTS PROGRAM =======
 		gl.glUseProgram(objectProgram);
-		mvLoc = gl.glGetUniformLocation(objectProgram, "mv_matrix");
-		pLoc = gl.glGetUniformLocation(objectProgram, "p_matrix");
-		nLoc = gl.glGetUniformLocation(objectProgram, "norm_matrix");
-		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
-		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
-		
-		gl.glDisable(GL_CULL_FACE);		//enable faces for objects
 
 		// ======== CAMERA/VIEW MATRIX SET UP ========
 		vMat.identity();
 		vMat = cam.getViewMatrix();
 
+		mLoc = gl.glGetUniformLocation(objectProgram, "m_matrix");
+		vLoc = gl.glGetUniformLocation(objectProgram, "v_matrix");
+		pLoc = gl.glGetUniformLocation(objectProgram, "p_matrix");
+		nLoc = gl.glGetUniformLocation(objectProgram, "norm_matrix");
+		mvLoc = gl.glGetUniformLocation(objectProgram, "mv_matrix");
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
+		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
+		
 
 		// LIGHTING
 		currentLightPos.set(initialLightLoc);
-		currentLightPos.rotateAxis((float)Math.toRadians(deltaTime * 0.03f), 0.0f, 0.0f, 1.0f);
-		
+		currentLightPos.rotateAxis((float)Math.toRadians(0.3f * deltaTime), 0.0f, 0.0f, 1.0f);
 		installLights();
 
 		mMat.invert(invTrMat);
 		invTrMat.transpose(invTrMat);
 
-
 		// ======== MODELS AND MODEL-VIEW MATRICES SET UP ========
+
 		// ======================================================================= huge cube object
 		mMat.identity().translation(bigCubeLocX, bigCubeLocY, bigCubeLocZ);
-		mMat.scale(20.0f, 20.0f, 20.0f);
+		mMat.scale(2.0f, 2.0f, 2.0f);
 		mvMat.identity();
 		mvMat.mul(vMat);
 		mvMat.mul(mMat);
-		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 
 		// get the location of uniform variable "textureScale" in the shader program
         textureScaleLocation = gl.glGetUniformLocation(objectProgram, "textureScale");
-        // set the value "textureScale" to 8.0f
-        gl.glUniform1f(textureScaleLocation, 8.0f);
+        // set the value "textureScale"
+        gl.glUniform1f(textureScaleLocation, 2.0f);
 
 		// associate VBO with the corresponding vertex attribute in the vertex shader
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
@@ -221,13 +226,15 @@ public class Code extends JFrame implements GLEventListener
 		// ======================================================================= duck obj file
 		mMat.identity().translation(objLocX, objLocY, objLocZ);
 		mMat.rotate((float)tf, 0.0f, 1.0f, 0.0f);
-		mMat.scale(1.3f, 1.3f, 1.3f);
+		mMat.scale(1.0f, 1.0f, 1.0f);
 
 		mvMat.identity();
 		mvMat.mul(vMat);
 		mvMat.mul(mMat);
 
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 
@@ -363,7 +370,7 @@ public class Code extends JFrame implements GLEventListener
 		mspecLoc = gl.glGetUniformLocation(objectProgram, "material.specular");
 		mshiLoc = gl.glGetUniformLocation(objectProgram, "material.shininess");
 	
-		//  set the uniform light and material values in the shader
+		// set the uniform light and material values in the shader
 		gl.glProgramUniform4fv(objectProgram, globalAmbLoc, 1, globalAmbient, 0);
 		gl.glProgramUniform4fv(objectProgram, ambLoc, 1, lightAmbient, 0);
 		gl.glProgramUniform4fv(objectProgram, diffLoc, 1, lightDiffuse, 0);
