@@ -34,7 +34,7 @@ void main(void)
 	// normalize the light, normal, and view vectors:
 	vec3 L = normalize(varyingLightDir);
 	vec3 N = normalize(varyingNormal);
-	vec3 V = normalize(-v_matrix[3].xyz -varyingVertPos);
+	vec3 V = normalize(-varyingVertPos);
 	
 	// get the angle between the light and surface normal:
 	float cosTheta = dot(L,N);

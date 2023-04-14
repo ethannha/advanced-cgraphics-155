@@ -29,6 +29,7 @@ public class Code extends JFrame implements GLEventListener
 	private long lastFrame;
 
 	private float cameraX, cameraY, cameraZ;
+	private float plightX, plightY, plightZ;
 	private float bigCubeLocX, bigCubeLocY, bigCubeLocZ;
 	private float objLocX, objLocY, objLocZ;
 	private Camera cam;
@@ -42,20 +43,20 @@ public class Code extends JFrame implements GLEventListener
 	private Matrix4f mMat = new Matrix4f();  // model matrix
 	private Matrix4f mvMat = new Matrix4f(); // model-view matrix
 	private Matrix4f invTrMat = new Matrix4f(); // inverse-transpose
-	private int mvLoc, pLoc, axesmvLoc, axespLoc, vLoc, nLoc, mLoc;
+	private int mvLoc, pLoc, axesmvLoc, axespLoc, vLoc, nLoc;
 	private float aspect;
 
 	// lighting variables
-	private Vector3f initialLightLoc = new Vector3f();
+	private Light lightCube;
 	private int globalAmbLoc, ambLoc, diffLoc, specLoc, posLoc, mambLoc, mdiffLoc, mspecLoc, mshiLoc;
 	private Vector3f currentLightPos = new Vector3f();
 	private float[] lightPos = new float[3];
 
 	// white light properties
-	float[] globalAmbient = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
-	float[] lightAmbient = new float[] { 0.1f, 0.1f, 0.1f, 1.0f };
-	float[] lightDiffuse = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
-	float[] lightSpecular = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
+	float[] globalAmbient = new float[] { 0.2f, 0.2f, 0.2f, 1.0f };
+	float[] lightAmbient = new float[] { 0.1f, 0.0f, 0.0f, 1.0f };
+	float[] lightDiffuse = new float[] { 1.0f, 0.0f, 0.0f, 1.0f };
+	float[] lightSpecular = new float[] { 1.0f, 0.0f, 0.0f, 1.0f };
 		
 	// gold material
 	float[] matAmb = Utils.goldAmbient();
@@ -95,7 +96,9 @@ public class Code extends JFrame implements GLEventListener
 		cameraX = 0.0f; cameraY = 0.0f; cameraZ = 8.0f;
 		Vector3f camLoc = new Vector3f(cameraX, cameraY, cameraZ);
 		cam = new Camera(camLoc);
-
+		plightX = 5.0f; plightY = 2.0f; plightZ = -3.0f;
+		Vector3f initialLightLoc = new Vector3f(plightX, plightY, plightZ);
+		lightCube = new Light(initialLightLoc);
 		bigCubeLocX = 0.0f; bigCubeLocY = -4.0f; bigCubeLocZ = 0.0f;
 		objLocX = 0.0f; objLocY = -2.0f; objLocZ = 0.0f;
 		axesOn = true;
@@ -105,6 +108,37 @@ public class Code extends JFrame implements GLEventListener
 		skyboxTexture = Utils.loadCubeMap("assets/cubeMap");
 		gl.glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
+	}
+	
+	private void installLights()
+	{	GL4 gl = (GL4) GLContext.getCurrentGL();
+		
+		currentLightPos.mulPosition(vMat);
+		lightPos[0]=currentLightPos.x();
+		lightPos[1]=currentLightPos.y();
+		lightPos[2]=currentLightPos.z();
+		
+		// get the locations of the light and material fields in the shader
+		globalAmbLoc = gl.glGetUniformLocation(objectProgram, "globalAmbient");
+		ambLoc = gl.glGetUniformLocation(objectProgram, "light.ambient");
+		diffLoc = gl.glGetUniformLocation(objectProgram, "light.diffuse");
+		specLoc = gl.glGetUniformLocation(objectProgram, "light.specular");
+		posLoc = gl.glGetUniformLocation(objectProgram, "light.position");
+		mambLoc = gl.glGetUniformLocation(objectProgram, "material.ambient");
+		mdiffLoc = gl.glGetUniformLocation(objectProgram, "material.diffuse");
+		mspecLoc = gl.glGetUniformLocation(objectProgram, "material.specular");
+		mshiLoc = gl.glGetUniformLocation(objectProgram, "material.shininess");
+	
+		// set the uniform light and material values in the shader
+		gl.glProgramUniform4fv(objectProgram, globalAmbLoc, 1, globalAmbient, 0);
+		gl.glProgramUniform4fv(objectProgram, ambLoc, 1, lightAmbient, 0);
+		gl.glProgramUniform4fv(objectProgram, diffLoc, 1, lightDiffuse, 0);
+		gl.glProgramUniform4fv(objectProgram, specLoc, 1, lightSpecular, 0);
+		gl.glProgramUniform3fv(objectProgram, posLoc, 1, lightPos, 0);
+		gl.glProgramUniform4fv(objectProgram, mambLoc, 1, matAmb, 0);
+		gl.glProgramUniform4fv(objectProgram, mdiffLoc, 1, matDif, 0);
+		gl.glProgramUniform4fv(objectProgram, mspecLoc, 1, matSpe, 0);
+		gl.glProgramUniform1f(objectProgram, mshiLoc, matShi);
 	}
 
 	public void display(GLAutoDrawable drawable)
@@ -175,8 +209,7 @@ public class Code extends JFrame implements GLEventListener
 
 		// LIGHTING
 		// setup lights based on current light position
-		initialLightLoc = new Vector3f(0.0f, -1.0f, 0.0f);
-		currentLightPos.set(initialLightLoc);
+		currentLightPos.set(lightCube.getLocation());
 		//currentLightPos.rotateAxis((float)Math.toRadians(0.3f * deltaTime), 0.0f, 0.0f, 1.0f);
 		installLights();
 
@@ -187,13 +220,36 @@ public class Code extends JFrame implements GLEventListener
 		// ======== MODELS AND MODEL-VIEW MATRICES SET UP ========
 
 		// ======================================================================= huge cube object
+		mMat.identity().translation(lightCube.getX(), lightCube.getY(), lightCube.getZ());
+		mMat.scale(0.2f, 0.2f, 0.2f);
+		mvMat.identity();
+		mvMat.mul(vMat);
+		mvMat.mul(mMat);
+
+		// put matrices into uniforms
+		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+
+		// associate VBO with the corresponding vertex attribute in the vertex shader
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+
+		//adjust OpenGL and draw cube
+		gl.glEnable(GL_DEPTH_TEST);
+ 		gl.glDepthFunc(GL_LEQUAL);
+		gl.glDrawArrays(GL_TRIANGLES, 0, 36);
+
+
+		// ======================================================================= huge cube object
 		mMat.identity().translation(bigCubeLocX, bigCubeLocY, bigCubeLocZ);
 		mMat.scale(2.0f, 2.0f, 2.0f);
 		mvMat.identity();
 		mvMat.mul(vMat);
 		mvMat.mul(mMat);
 		
-
 		// put matrices into uniforms
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
@@ -353,38 +409,6 @@ public class Code extends JFrame implements GLEventListener
 		FloatBuffer norBuf = Buffers.newDirectFloatBuffer(nvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, norBuf.limit()*4,norBuf, GL_STATIC_DRAW);
 
-
-	}
-
-	private void installLights()
-	{	GL4 gl = (GL4) GLContext.getCurrentGL();
-		
-		currentLightPos.mulPosition(vMat);
-		lightPos[0]=currentLightPos.x();
-		lightPos[1]=currentLightPos.y();
-		lightPos[2]=currentLightPos.z();
-		
-		// get the locations of the light and material fields in the shader
-		globalAmbLoc = gl.glGetUniformLocation(objectProgram, "globalAmbient");
-		ambLoc = gl.glGetUniformLocation(objectProgram, "light.ambient");
-		diffLoc = gl.glGetUniformLocation(objectProgram, "light.diffuse");
-		specLoc = gl.glGetUniformLocation(objectProgram, "light.specular");
-		posLoc = gl.glGetUniformLocation(objectProgram, "light.position");
-		mambLoc = gl.glGetUniformLocation(objectProgram, "material.ambient");
-		mdiffLoc = gl.glGetUniformLocation(objectProgram, "material.diffuse");
-		mspecLoc = gl.glGetUniformLocation(objectProgram, "material.specular");
-		mshiLoc = gl.glGetUniformLocation(objectProgram, "material.shininess");
-	
-		// set the uniform light and material values in the shader
-		gl.glProgramUniform4fv(objectProgram, globalAmbLoc, 1, globalAmbient, 0);
-		gl.glProgramUniform4fv(objectProgram, ambLoc, 1, lightAmbient, 0);
-		gl.glProgramUniform4fv(objectProgram, diffLoc, 1, lightDiffuse, 0);
-		gl.glProgramUniform4fv(objectProgram, specLoc, 1, lightSpecular, 0);
-		gl.glProgramUniform3fv(objectProgram, posLoc, 1, lightPos, 0);
-		gl.glProgramUniform4fv(objectProgram, mambLoc, 1, matAmb, 0);
-		gl.glProgramUniform4fv(objectProgram, mdiffLoc, 1, matDif, 0);
-		gl.glProgramUniform4fv(objectProgram, mspecLoc, 1, matSpe, 0);
-		gl.glProgramUniform1f(objectProgram, mshiLoc, matShi);
 	}
 
 	public void setKeybinds(GLCanvas myCanvas) {
@@ -416,19 +440,37 @@ public class Code extends JFrame implements GLEventListener
 								cam.moveDownward(10.0f * deltaTime);
 								break;
 							case KeyEvent.VK_LEFT:
-								cam.pan(80.0f * deltaTime);
+								cam.pan(100.0f * deltaTime);
 								break;
 							case KeyEvent.VK_RIGHT:
-								cam.pan(-80.0f * deltaTime);
+								cam.pan(-100.0f * deltaTime);
 								break;
 							case KeyEvent.VK_UP:
-								cam.pitch(80.0f * deltaTime);
+								cam.pitch(100.0f * deltaTime);
 								break;
 							case  KeyEvent.VK_DOWN:
-								cam.pitch(-80.0f * deltaTime);
+								cam.pitch(-100.0f * deltaTime);
 								break;
 							case KeyEvent.VK_SPACE:
 								axesOn = !axesOn;
+								break;
+							case KeyEvent.VK_I:
+								lightCube.moveForward(10.0f * deltaTime);
+								break;
+							case  KeyEvent.VK_J:
+								lightCube.moveLeft(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_K:
+								lightCube.moveBackward(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_L:
+								lightCube.moveRight(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_U:
+								lightCube.moveUpward(10.0f * deltaTime);
+								break;
+							case KeyEvent.VK_O:
+								lightCube.moveDownward(10.0f * deltaTime);
 								break;
 						}
 					}
