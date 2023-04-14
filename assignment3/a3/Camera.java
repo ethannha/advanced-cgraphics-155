@@ -12,9 +12,9 @@ public class Camera
     private Vector3f defaultLocation, defaultTarget;
     private Vector3f defaultU, defaultV, defaultN;
     
-    public Camera(Vector3f loc) {
+    public Camera(Vector3f loc, Vector3f tar) {
         defaultLocation = new Vector3f(loc);
-        defaultTarget = new Vector3f(0.0f, 0.0f, 0.0f);
+        defaultTarget = new Vector3f(tar);
         defaultU = new Vector3f(1.0f, 0.0f, 0.0f);
         defaultV = new Vector3f(0.0f, 1.0f, 0.0f);
         defaultN = new Vector3f(0.0f, 0.0f, -1.0f);

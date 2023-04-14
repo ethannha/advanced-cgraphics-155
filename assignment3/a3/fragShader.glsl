@@ -39,18 +39,18 @@ void main(void)
 	// get the angle between the light and surface normal:
 	float cosTheta = dot(L,N);
 	
-	// compute light reflection vector, with respect N:
-	vec3 R = normalize(reflect(-L, N));
-	// get angle between the normal and the halfway vector
+	// halfway vector interpolated
 	vec3 H = normalize(varyingHalfVector);
-	float cosPhi = dot(V,R);
+
+	// get angle between the normal and the halfway vector
+	float cosPhi = dot(H,N);
 
 	// compute ADS contributions (per pixel):
 	vec3 ambient = ((globalAmbient * material.ambient) + (light.ambient * material.ambient)).xyz;
 	vec3 diffuse = light.diffuse.xyz * material.diffuse.xyz * max(cosTheta,0.0);
-	vec3 specular = light.specular.xyz * material.specular.xyz * pow(max(cosPhi,0.0), material.shininess);
+	vec3 specular = light.specular.xyz * material.specular.xyz * pow(max(cosPhi,0.0), material.shininess*3.0);
 	
 	vec4 texColor = texture(s, tc);
-	vec4 lightColor = vec4((ambient + diffuse + specular), 1.0f);
+	vec4 lightColor = vec4((ambient + diffuse + specular), 1.0);
 	color = (texColor * lightColor);
 }

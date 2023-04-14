@@ -29,8 +29,10 @@ public class Light {
     public float getY() { return location.y; }
     public float getZ() { return location.z; }
 
-    
     public void setLocation(Vector3f loc) { location = loc; }
+    public void setX(float x) { location.x = x; }
+    public void setY(float y) { location.y = y; }
+    public void setZ(float z) { location.z = z; }
 
     /** camera moves forward */
     public void moveForward(float distance)

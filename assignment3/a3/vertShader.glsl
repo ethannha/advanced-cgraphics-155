@@ -3,11 +3,11 @@
 layout (location=0) in vec3 position;
 layout (location=1) in vec2 tex_coord;
 layout (location=2) in vec3 normal;
-out vec2 tc;
 out vec3 varyingNormal;
 out vec3 varyingLightDir;
 out vec3 varyingVertPos;
 out vec3 varyingHalfVector;
+out vec2 tc;
 
 struct PositionalLight
 {	vec4 ambient;
@@ -27,6 +27,7 @@ uniform PositionalLight light;
 uniform Material material;
 uniform float textureScale;
 uniform mat4 mv_matrix;
+uniform mat4 v_matrix;
 uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
 layout (binding=0) uniform sampler2D s;
@@ -36,7 +37,9 @@ void main(void)
 	varyingVertPos = (mv_matrix * vec4(position,1.0)).xyz;
 	varyingLightDir = light.position - varyingVertPos;
 	varyingNormal = (norm_matrix * vec4(normal,1.0)).xyz;
-	varyingHalfVector = (varyingLightDir - varyingVertPos).xyz;
+	varyingHalfVector =
+		normalize(normalize(varyingLightDir)
+		+ normalize(-varyingVertPos)).xyz;
 
 	gl_Position = p_matrix * mv_matrix * vec4(position,1.0);
 	tc = tex_coord * textureScale;
