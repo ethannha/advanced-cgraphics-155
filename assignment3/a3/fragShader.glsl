@@ -23,7 +23,8 @@ struct Material
 uniform vec4 globalAmbient;
 uniform PositionalLight light;
 uniform Material material;
-uniform mat4 mv_matrix;
+uniform float intensity;
+uniform mat4 m_matrix;
 uniform mat4 v_matrix;
 uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
@@ -34,7 +35,7 @@ void main(void)
 	// normalize the light, normal, and view vectors:
 	vec3 L = normalize(varyingLightDir);
 	vec3 N = normalize(varyingNormal);
-	vec3 V = normalize(-varyingVertPos);
+	vec3 V = normalize(-v_matrix[3].xyz - varyingVertPos);
 	
 	// get the angle between the light and surface normal:
 	float cosTheta = dot(L,N);
@@ -51,6 +52,6 @@ void main(void)
 	vec3 specular = light.specular.xyz * material.specular.xyz * pow(max(cosPhi,0.0), material.shininess*3.0);
 	
 	vec4 texColor = texture(s, tc);
-	vec4 lightColor = vec4((ambient + diffuse + specular), 1.0);
+	vec4 lightColor = vec4((ambient + (diffuse * intensity) + (specular * intensity)), 1.0);
 	color = (texColor * lightColor);
 }
