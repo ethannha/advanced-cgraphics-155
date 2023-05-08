@@ -8,15 +8,11 @@ in vec2 tc;
 out vec4 color;
 
 struct PositionalLight
-{	vec4 ambient;  
-	vec4 diffuse;  
-	vec4 specular;  
+{	vec4 ambient, diffuse, specular;  
 	vec3 position;
 };
 struct Material
-{	vec4 ambient;  
-	vec4 diffuse;  
-	vec4 specular;  
+{	vec4 ambient, diffuse, specular;  
 	float shininess;
 };
 

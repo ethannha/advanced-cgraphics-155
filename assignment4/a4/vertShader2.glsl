@@ -7,8 +7,8 @@ out vec3 varyingNormal;
 out vec3 varyingLightDir;
 out vec3 varyingVertPos;
 out vec3 varyingHalfVector;
-out vec4 shadow_coord;
 out vec2 tc;
+out vec4 shadow_coord;
 
 struct PositionalLight
 {	vec4 ambient, diffuse, specular;
