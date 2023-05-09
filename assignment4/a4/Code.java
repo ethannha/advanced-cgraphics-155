@@ -19,7 +19,7 @@ import org.joml.*;
 public class Code extends JFrame implements GLEventListener
 {	
 	private GLCanvas myCanvas;
-	private int renderingProgram1, renderingProgram2, axesProgram, cubemapProgram, floorProgram, lightDotProgram;
+	private int renderingProgram1, renderingProgram2, axesProgram, cubemapProgram, floorProgram;
 	private int vao[] = new int[1];
 	private int vbo[] = new int[9];
 	private double startTime = 0.0;
@@ -62,7 +62,6 @@ public class Code extends JFrame implements GLEventListener
 	private int intensityLoc;
 	private Vector3f currentLightPos = new Vector3f();
 	private float[] lightPos = new float[3];
-	private Vector4f lightDotColor;
 
 	// light properties
 	private float[] globalAmbient = new float[] { 0.7f, 0.7f, 0.7f, 1.0f };
@@ -108,7 +107,6 @@ public class Code extends JFrame implements GLEventListener
 		
 		cubemapProgram = Utils.createShaderProgram("a4/vertCShader.glsl", "a4/fragCShader.glsl");
 		floorProgram = Utils.createShaderProgram("a4/vertFloorShader.glsl", "a4/fragFloorShader.glsl");
-		lightDotProgram = Utils.createShaderProgram("a4/lightDotVert.glsl", "a4/lightDotFrag.glsl");
 		axesProgram = Utils.createShaderProgram("a4/vertAxesShader.glsl", "a4/fragAxesShader.glsl");
 		renderingProgram1 = Utils.createShaderProgram("a4/vertShader1.glsl", "a4/fragShader1.glsl");
 		renderingProgram2 = Utils.createShaderProgram("a4/vertShader2.glsl", "a4/fragShader2.glsl");
@@ -128,8 +126,6 @@ public class Code extends JFrame implements GLEventListener
 			0.0f, 0.0f, 0.5f, 0.0f,
 			0.5f, 0.5f, 0.5f, 1.0f);
 		
-		lightDotColor = new Vector4f(1.0f, 1.0f, 0.0f, 1.0f);
-
 		cameraPosition = new Vector3f(0.0f, 2.0f, 12.0f);
 		Vector3f targetPosition = new Vector3f(cameraPosition.x(), cameraPosition.y(), 0.0f);
 		cam = new Camera(cameraPosition, targetPosition);
@@ -338,17 +334,6 @@ public class Code extends JFrame implements GLEventListener
 		deltaTime = (float) ((currentFrame - lastFrame) / 1000.0);
 		lastFrame = currentFrame;
 
-		// Set up the light dot shader program
-		gl.glUseProgram(lightDotProgram);
-
-		// Set the light position uniform
-		int lightPositionLocation = gl.glGetUniformLocation(lightDotProgram, "lightPosition");
-		gl.glUniform3f(lightPositionLocation, lightPosition.x, lightPosition.y, lightPosition.z);
-
-		// Set the light dot color uniform
-		int lightDotColorLocation = gl.glGetUniformLocation(lightDotProgram, "lightDotColor");
-		gl.glUniform4f(lightDotColorLocation, 1.0f, 1.0f, 0.0f, 1.0f);	// yellow color
-
 		currentLightPos.set(lightPosition);
 
 		lightVmat.identity().setLookAt(currentLightPos, origin, up);	// vector from light to origin
@@ -448,6 +433,25 @@ public class Code extends JFrame implements GLEventListener
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		gl.glUseProgram(renderingProgram1);
 
+		// ======================================================================= light cube object
+		mvStack.pushMatrix();
+		mvStack.translation(lightCube.getX(), lightCube.getY(), lightCube.getZ());
+		mvStack.pushMatrix();
+		mvStack.scale(0.2f, 0.2f, 0.2f);
+
+		mMat.identity();
+		mMat.set(mvStack);
+
+		// put matrices into uniforms
+		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP1.get(vals));
+
+		// associate VBO with the corresponding vertex attribute in the vertex shader
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+
+		mvStack.popMatrix();
+	
 		// ======================================================================= duck obj
 		mvStack.pushMatrix();
 		mvStack.translation(duckPosition);
@@ -503,6 +507,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glDepthFunc(GL_LEQUAL);
 		
 		gl.glDrawArrays(GL_TRIANGLES, 0, ducklingModel.getNumVertices());
+		mvStack.popMatrix();
 		mvStack.popMatrix();
 		mvStack.popMatrix();
 		mvStack.popMatrix();
