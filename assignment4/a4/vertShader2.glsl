@@ -37,7 +37,7 @@ void main(void)
 	varyingNormal = (norm_matrix * vec4(normal,1.0)).xyz;
 	varyingHalfVector = normalize(varyingLightDir-varyingVertPos).xyz;
 
-	shadow_coord = shadowMVP * vec4(vertPos,1.0);
+	shadow_coord = shadowMVP * vec4(position,1.0);
 
 	gl_Position = p_matrix * v_matrix * m_matrix * vec4(position,1.0);
 	tc = tex_coord;

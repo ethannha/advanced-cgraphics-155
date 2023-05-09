@@ -19,21 +19,20 @@ import org.joml.*;
 public class Code extends JFrame implements GLEventListener
 {	
 	private GLCanvas myCanvas;
-	private int renderingProgram1, renderingProgram2, axesProgram, cubemapProgram;
+	private int renderingProgram1, renderingProgram2, axesProgram, cubemapProgram, floorProgram, lightDotProgram;
 	private int vao[] = new int[1];
-	private int vbo[] = new int[7];
+	private int vbo[] = new int[9];
 	private double startTime = 0.0;
 	private double elapsedTime;
 	private double tf;
 	private float deltaTime = 0.0f;
 	private long lastFrame;
 
-	private float cameraX, cameraY, cameraZ;	//location of camera
-	private float plightX, plightY, plightZ;
-	private float objLocX, objLocY, objLocZ;
+	private boolean axesOn, lightOn;
 	private float xOffset, yOffset;
 	private Camera cam;
-	private boolean axesOn, lightOn;
+	private Vector3f cameraPosition, lightPosition, duckPosition, ducklingPosition;
+	private float planeHeight = 0.0f;
 
 	// shadow stuff
 	private int scSizeX, scSizeY;
@@ -54,6 +53,8 @@ public class Code extends JFrame implements GLEventListener
 	private Matrix4f invTrMat = new Matrix4f(); // inverse-transpose
 	private int axesvLoc, axespLoc, mLoc, vLoc, pLoc, nLoc, sLoc;
 	private float aspect;
+	private Vector3f origin = new Vector3f(0.0f, 0.0f, 0.0f);
+	private Vector3f up = new Vector3f(0.0f, 1.0f, 0.0f);
 
 	// lighting variables
 	private Light lightCube;
@@ -61,6 +62,7 @@ public class Code extends JFrame implements GLEventListener
 	private int intensityLoc;
 	private Vector3f currentLightPos = new Vector3f();
 	private float[] lightPos = new float[3];
+	private Vector4f lightDotColor;
 
 	// light properties
 	private float[] globalAmbient = new float[] { 0.7f, 0.7f, 0.7f, 1.0f };
@@ -103,11 +105,19 @@ public class Code extends JFrame implements GLEventListener
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 		startTime = System.currentTimeMillis();
 		lastFrame = System.currentTimeMillis();
-		axesProgram = Utils.createShaderProgram("a4/vertAxesShader.glsl", "a4/fragAxesShader.glsl");
-		renderingProgram2 = Utils.createShaderProgram("a4/vertShader.glsl", "a4/fragShader.glsl");
+		
 		cubemapProgram = Utils.createShaderProgram("a4/vertCShader.glsl", "a4/fragCShader.glsl");
+		floorProgram = Utils.createShaderProgram("a4/vertFloorShader.glsl", "a4/fragFloorShader.glsl");
+		lightDotProgram = Utils.createShaderProgram("a4/lightDotVert.glsl", "a4/lightDotFrag.glsl");
+		axesProgram = Utils.createShaderProgram("a4/vertAxesShader.glsl", "a4/fragAxesShader.glsl");
+		renderingProgram1 = Utils.createShaderProgram("a4/vertShader1.glsl", "a4/fragShader1.glsl");
+		renderingProgram2 = Utils.createShaderProgram("a4/vertShader2.glsl", "a4/fragShader2.glsl");
+
 		duckModel = new ImportedModel("assets/models/duck.obj");
 		ducklingModel = new ImportedModel("assets/models/duckling.obj");
+
+		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
+		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
 		
 		setupVertices();
 		setupShadowBuffers();
@@ -118,14 +128,18 @@ public class Code extends JFrame implements GLEventListener
 			0.0f, 0.0f, 0.5f, 0.0f,
 			0.5f, 0.5f, 0.5f, 1.0f);
 		
-		cameraX = 0.0f; cameraY = 2.0f; cameraZ = 12.0f;
-		Vector3f camLoc = new Vector3f(cameraX, cameraY, cameraZ);
-		Vector3f tarLoc = new Vector3f(cameraX, cameraY, 0.0f);
-		cam = new Camera(camLoc, tarLoc);
-		plightX = 0.0f; plightY = 3.0f; plightZ = 0.0f;
-		Vector3f initialLightLoc = new Vector3f(plightX, plightY, plightZ);
-		lightCube = new Light(initialLightLoc);
-		objLocX = -4.0f; objLocY = 0.0f; objLocZ = 2.0f;
+		lightDotColor = new Vector4f(1.0f, 1.0f, 0.0f, 1.0f);
+
+		cameraPosition = new Vector3f(0.0f, 2.0f, 12.0f);
+		Vector3f targetPosition = new Vector3f(cameraPosition.x(), cameraPosition.y(), 0.0f);
+		cam = new Camera(cameraPosition, targetPosition);
+
+		lightPosition = new Vector3f(0.0f, 3.0f, 0.0f);
+		lightCube = new Light(lightPosition);
+
+		duckPosition = new Vector3f(0.0f, 0.0f, 2.0f);
+		ducklingPosition = new Vector3f(0.0f, 0.0f, 3.0f);
+
 		axesOn = true;
 		lightOn = true;
 
@@ -176,6 +190,14 @@ public class Code extends JFrame implements GLEventListener
 			-1.0f,  1.0f, -1.0f, 1.0f,  1.0f, -1.0f, 1.0f,  1.0f,  1.0f,
 			1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f
 		};
+		float[] PLANE_POSITIONS = {
+			-120.0f, 0.0f, -120.0f,  -120.0f, 0.0f, 120.0f,  120.0f, 0.0f, -120.0f,  
+			120.0f, 0.0f, -120.0f,  -120.0f, 0.0f, 120.0f,  120.0f, 0.0f, 120.0f
+		};
+		float[] PLANE_TEXCOORDS = {
+			0.0f, 0.0f,  0.0f, 1.0f,  1.0f, 0.0f,
+			1.0f, 0.0f,  0.0f, 1.0f,  1.0f, 1.0f
+		};
 		
 		// duck object
 		duckObjVertices = duckModel.getNumVertices();
@@ -224,49 +246,55 @@ public class Code extends JFrame implements GLEventListener
 		gl.glBindVertexArray(vao[0]);
 		gl.glGenBuffers(vbo.length, vbo, 0);
 
+		// cubemap
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 		FloatBuffer cubeBuf = Buffers.newDirectFloatBuffer(cubePositions);
 		gl.glBufferData(GL_ARRAY_BUFFER, cubeBuf.limit()*4, cubeBuf, GL_STATIC_DRAW);
 
-
+		// duck
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(pvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit()*4, vertBuf, GL_STATIC_DRAW);
-
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
 		FloatBuffer texBuf = Buffers.newDirectFloatBuffer(tvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, texBuf.limit()*4, texBuf, GL_STATIC_DRAW);
-
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
 		FloatBuffer norBuf = Buffers.newDirectFloatBuffer(nvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, norBuf.limit()*4, norBuf, GL_STATIC_DRAW);
 
+		// duckling
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		FloatBuffer vertBuf2 = Buffers.newDirectFloatBuffer(pvalues2);
 		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf2.limit()*4, vertBuf2, GL_STATIC_DRAW);
-
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[5]);
 		FloatBuffer texBuf2 = Buffers.newDirectFloatBuffer(tvalues2);
 		gl.glBufferData(GL_ARRAY_BUFFER, texBuf2.limit()*4, texBuf2, GL_STATIC_DRAW);
-
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
 		FloatBuffer norBuf2 = Buffers.newDirectFloatBuffer(nvalues2);
 		gl.glBufferData(GL_ARRAY_BUFFER, norBuf2.limit()*4, norBuf2, GL_STATIC_DRAW);
 
+		// floor plane
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[7]);
+		FloatBuffer planeBuf = Buffers.newDirectFloatBuffer(PLANE_POSITIONS);
+		gl.glBufferData(GL_ARRAY_BUFFER, planeBuf.limit()*4, planeBuf, GL_STATIC_DRAW);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
+		FloatBuffer texBuf3 = Buffers.newDirectFloatBuffer(PLANE_TEXCOORDS);
+		gl.glBufferData(GL_ARRAY_BUFFER, texBuf3.limit()*4, texBuf3, GL_STATIC_DRAW);
+
 	}
 
-	private void installLights(int renderingProgram)
+	private void installLights(int renderingProgram2)
 	{	
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 
 		if (lightOn == true) {
 			float lightIntensity = 1.0f;
-			intensityLoc = gl.glGetUniformLocation(renderingProgram, "intensity");
-			gl.glProgramUniform1f(renderingProgram, intensityLoc, lightIntensity);
+			intensityLoc = gl.glGetUniformLocation(renderingProgram2, "intensity");
+			gl.glProgramUniform1f(renderingProgram2, intensityLoc, lightIntensity);
 		} else {
 			float lightIntensity = 0.0f;
-			intensityLoc = gl.glGetUniformLocation(renderingProgram, "intensity");
-			gl.glProgramUniform1f(renderingProgram, intensityLoc, lightIntensity);
+			intensityLoc = gl.glGetUniformLocation(renderingProgram2, "intensity");
+			gl.glProgramUniform1f(renderingProgram2, intensityLoc, lightIntensity);
 		}
 		
 		lightPos[0]=currentLightPos.x();
@@ -274,26 +302,26 @@ public class Code extends JFrame implements GLEventListener
 		lightPos[2]=currentLightPos.z();
 		
 		// get the locations of the light and material fields in the shader
-		globalAmbLoc = gl.glGetUniformLocation(renderingProgram, "globalAmbient");
-		ambLoc = gl.glGetUniformLocation(renderingProgram, "light.ambient");
-		diffLoc = gl.glGetUniformLocation(renderingProgram, "light.diffuse");
-		specLoc = gl.glGetUniformLocation(renderingProgram, "light.specular");
-		posLoc = gl.glGetUniformLocation(renderingProgram, "light.position");
-		mambLoc = gl.glGetUniformLocation(renderingProgram, "material.ambient");
-		mdiffLoc = gl.glGetUniformLocation(renderingProgram, "material.diffuse");
-		mspecLoc = gl.glGetUniformLocation(renderingProgram, "material.specular");
-		mshiLoc = gl.glGetUniformLocation(renderingProgram, "material.shininess");
+		globalAmbLoc = gl.glGetUniformLocation(renderingProgram2, "globalAmbient");
+		ambLoc = gl.glGetUniformLocation(renderingProgram2, "light.ambient");
+		diffLoc = gl.glGetUniformLocation(renderingProgram2, "light.diffuse");
+		specLoc = gl.glGetUniformLocation(renderingProgram2, "light.specular");
+		posLoc = gl.glGetUniformLocation(renderingProgram2, "light.position");
+		mambLoc = gl.glGetUniformLocation(renderingProgram2, "material.ambient");
+		mdiffLoc = gl.glGetUniformLocation(renderingProgram2, "material.diffuse");
+		mspecLoc = gl.glGetUniformLocation(renderingProgram2, "material.specular");
+		mshiLoc = gl.glGetUniformLocation(renderingProgram2, "material.shininess");
 	
 		// set the uniform light and material values in the shader
-		gl.glProgramUniform4fv(renderingProgram, globalAmbLoc, 1, globalAmbient, 0);
-		gl.glProgramUniform4fv(renderingProgram, ambLoc, 1, lightAmbient, 0);
-		gl.glProgramUniform4fv(renderingProgram, diffLoc, 1, lightDiffuse, 0);
-		gl.glProgramUniform4fv(renderingProgram, specLoc, 1, lightSpecular, 0);
-		gl.glProgramUniform3fv(renderingProgram, posLoc, 1, lightPos, 0);
-		gl.glProgramUniform4fv(renderingProgram, mambLoc, 1, matAmb, 0);
-		gl.glProgramUniform4fv(renderingProgram, mdiffLoc, 1, matDif, 0);
-		gl.glProgramUniform4fv(renderingProgram, mspecLoc, 1, matSpe, 0);
-		gl.glProgramUniform1f(renderingProgram, mshiLoc, matShi);
+		gl.glProgramUniform4fv(renderingProgram2, globalAmbLoc, 1, globalAmbient, 0);
+		gl.glProgramUniform4fv(renderingProgram2, ambLoc, 1, lightAmbient, 0);
+		gl.glProgramUniform4fv(renderingProgram2, diffLoc, 1, lightDiffuse, 0);
+		gl.glProgramUniform4fv(renderingProgram2, specLoc, 1, lightSpecular, 0);
+		gl.glProgramUniform3fv(renderingProgram2, posLoc, 1, lightPos, 0);
+		gl.glProgramUniform4fv(renderingProgram2, mambLoc, 1, matAmb, 0);
+		gl.glProgramUniform4fv(renderingProgram2, mdiffLoc, 1, matDif, 0);
+		gl.glProgramUniform4fv(renderingProgram2, mspecLoc, 1, matSpe, 0);
+		gl.glProgramUniform1f(renderingProgram2, mshiLoc, matShi);
 	}
 
 	public void display(GLAutoDrawable drawable)
@@ -310,9 +338,23 @@ public class Code extends JFrame implements GLEventListener
 		deltaTime = (float) ((currentFrame - lastFrame) / 1000.0);
 		lastFrame = currentFrame;
 
-		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
-		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
+		// Set up the light dot shader program
+		gl.glUseProgram(lightDotProgram);
 
+		// Set the light position uniform
+		int lightPositionLocation = gl.glGetUniformLocation(lightDotProgram, "lightPosition");
+		gl.glUniform3f(lightPositionLocation, lightPosition.x, lightPosition.y, lightPosition.z);
+
+		// Set the light dot color uniform
+		int lightDotColorLocation = gl.glGetUniformLocation(lightDotProgram, "lightDotColor");
+		gl.glUniform4f(lightDotColorLocation, 1.0f, 1.0f, 0.0f, 1.0f);	// yellow color
+
+		currentLightPos.set(lightPosition);
+
+		lightVmat.identity().setLookAt(currentLightPos, origin, up);	// vector from light to origin
+		lightPmat.identity().setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
+
+	
 		// ====== RENDER CUBE MAP PROGRAM ======
 		gl.glUseProgram(cubemapProgram);
 
@@ -338,6 +380,32 @@ public class Code extends JFrame implements GLEventListener
 
 		gl.glDisable(GL_CULL_FACE);		//enable faces for objects
 
+		
+		// ======= RENDER FLOOR PROGRAM =======
+		gl.glUseProgram(floorProgram);
+		mLoc = gl.glGetUniformLocation(floorProgram, "m_matrix");
+		vLoc = gl.glGetUniformLocation(floorProgram, "v_matrix");
+		pLoc = gl.glGetUniformLocation(floorProgram, "p_matrix");
+
+		mMat.translation(0, planeHeight, 0);
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[7]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[8]);
+		gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(1);
+
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glDepthFunc(GL_LEQUAL);
+		gl.glDrawArrays(GL_TRIANGLES, 0, 6);
+
+
 		// ======= RENDER AXES PROGRAM =======
 		gl.glUseProgram(axesProgram);
 		axesvLoc = gl.glGetUniformLocation(axesProgram, "v_matrix");
@@ -349,13 +417,69 @@ public class Code extends JFrame implements GLEventListener
 			gl.glDrawArrays(GL_LINES, 0, 6);
 		}
 
+
+		// shadows
+		gl.glBindFramebuffer(GL_FRAMEBUFFER, shadowBuffer[0]);
+		gl.glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, shadowTex[0], 0);
+
+		gl.glDrawBuffer(GL_NONE);
+		gl.glClear(GL_DEPTH_BUFFER_BIT);
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glEnable(GL_POLYGON_OFFSET_FILL);	//  for reducing
+		gl.glPolygonOffset(3.0f, 5.0f);		//  shadow artifacts
+
+		passOne();
+		
+		gl.glDisable(GL_POLYGON_OFFSET_FILL);	// artifact reduction, continued
+		
+		gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glBindTexture(GL_TEXTURE_2D, shadowTex[0]);
+	
+		gl.glDrawBuffer(GL_FRONT);
+		
+		passTwo();
+		
+
 	}
 
 	public void passOne() 
 	{
 		GL4 gl = (GL4) GLContext.getCurrentGL();
+		gl.glUseProgram(renderingProgram1);
 
+		// ======================================================================= duck obj
 		mvStack.pushMatrix();
+		mvStack.translation(duckPosition);
+		mvStack.pushMatrix();
+
+		mMat.identity();
+		mMat.set(mvStack);
+		
+		shadowMVP1.identity();
+		shadowMVP1.mul(lightPmat);
+		shadowMVP1.mul(lightVmat);
+		shadowMVP1.mul(mMat);
+
+		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP1.get(vals));
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glDepthFunc(GL_LEQUAL);
+		
+		gl.glDrawArrays(GL_TRIANGLES, 0, duckModel.getNumVertices());
+		mvStack.popMatrix();
+		
+		// ======================================================================= duckling obj
+		mvStack.pushMatrix();
+		mvStack.translate(ducklingPosition);
+		mvStack.pushMatrix();
+
 		mMat.identity();
 		mMat.set(mvStack);
 
@@ -363,151 +487,32 @@ public class Code extends JFrame implements GLEventListener
 		shadowMVP1.mul(lightPmat);
 		shadowMVP1.mul(lightVmat);
 		shadowMVP1.mul(mMat);
-		sLoc = gl.glGetUniformLocation(renderingProgram1, "shadowMVP");
+
 		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP1.get(vals));
-
-		// put matrix into uniform shadow mvp
-		gl.glUniformMatrix4fv(nLoc, 1, false, shadowMVP1.get(vals));
-
-		// associate VBO with the corresponding vertex attribute in the vertex shader
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-
-		// ======== MODELS AND MODEL-VIEW MATRICES SET UP ========
-		// ======================================================================= light cube object
-		mvStack.pushMatrix();
-		mvStack.translation(lightCube.getX(), lightCube.getY(), lightCube.getZ());
-		mvStack.pushMatrix();
-		mvStack.scale(0.2f, 0.2f, 0.2f);
-	
-		mMat.identity();
-		mMat.set(mvStack);
-		mMat.invert(invTrMat);
-
-		invTrMat.identity();
-		invTrMat.transpose(invTrMat);
-
-		shadowMVP2.identity();
-		shadowMVP2.mul(b);
-		shadowMVP2.mul(lightPmat);
-		shadowMVP2.mul(lightVmat);
-		shadowMVP2.mul(mMat);
-
-		// put matrices into uniforms
-		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
-		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
-		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
-		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
-
-		// associate VBO with the corresponding vertex attribute in the vertex shader
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-
-		//adjust OpenGL and draw cube
-		if(lightOn) {
-			gl.glDrawArrays(GL_TRIANGLES, 0, 36);
-		}
-		mvStack.popMatrix();
-
-
-		// ======================================================================= duck obj
-		mvStack.pushMatrix();
-		mvStack.translation(objLocX, objLocY, objLocZ);
-		objLocX += 2.0f * deltaTime;
-		if(objLocX > 4.0f){
-			objLocX = -4.0f;
-		}
-		mvStack.pushMatrix();
-		float radians = (float) Math.toRadians(-90);
-		//mvStack.rotate(radians, 0.0f, 1.0f, 0.0f);
-
-		mMat.identity();
-		mMat.set(mvStack);
-		mMat.invert(invTrMat);
-
-		invTrMat.identity();
-		invTrMat.transpose(invTrMat);
-		
-		shadowMVP2.identity();
-		shadowMVP2.mul(b);
-		shadowMVP2.mul(lightPmat);
-		shadowMVP2.mul(lightVmat);
-		shadowMVP2.mul(mMat);
-
-		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
-		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
-		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
-		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
-
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-
-		gl.glClear(GL_DEPTH_BUFFER_BIT);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
-		gl.glEnable(GL_DEPTH_TEST);
-		gl.glDepthFunc(GL_LEQUAL);
-	
-		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[4]);
-		gl.glDrawElements(GL_TRIANGLES, duckObjVertices, GL_UNSIGNED_INT, 0);
-		
-		gl.glDrawArrays(GL_TRIANGLES, 0, duckModel.getNumVertices());
-		mvStack.popMatrix();
-
-
-		// ======================================================================= duckling obj
-		mvStack.pushMatrix();
-		mvStack.translate(((float)Math.sin(tf)*2.0f), 0.0f, ((float)Math.cos(tf)*2.0f));
-		mvStack.pushMatrix();
-		//mvStack.rotate((float)tf, 0.0f, 1.0f, 0.0f);
-
-		mMat.identity();
-		mMat.set(mvStack);
-		mMat.invert(invTrMat);
-
-		invTrMat.identity();
-		invTrMat.transpose(invTrMat);
-
-		shadowMVP2.identity();
-		shadowMVP2.mul(b);
-		shadowMVP2.mul(lightPmat);
-		shadowMVP2.mul(lightVmat);
-		shadowMVP2.mul(mMat);
-
-		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
-		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
-		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 
-		gl.glClear(GL_DEPTH_BUFFER_BIT);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[6]);
+		gl.glVertexAttribPointer(2, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(2);
+
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDepthFunc(GL_LEQUAL);
-	
-		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[4]);
-		gl.glDrawElements(GL_TRIANGLES, ducklingObjVertices, GL_UNSIGNED_INT, 0);
 		
 		gl.glDrawArrays(GL_TRIANGLES, 0, ducklingModel.getNumVertices());
 		mvStack.popMatrix();
 		mvStack.popMatrix();
 		mvStack.popMatrix();
-		mvStack.popMatrix();
-		mvStack.popMatrix();
+
 	}
 
 	public void passTwo() 
 	{
 		GL4 gl = (GL4) GLContext.getCurrentGL();
+
 		gl.glUseProgram(renderingProgram2);
 		
 		// ======= RENDER OBJECTS PROGRAM =======
@@ -527,14 +532,12 @@ public class Code extends JFrame implements GLEventListener
 		currentLightPos.set(lightCube.getLocation());
 		installLights(renderingProgram2);
 		
-
-		// ======== MODELS AND MODEL-VIEW MATRICES SET UP ========
 		// ======================================================================= light cube object
 		mvStack.pushMatrix();
 		mvStack.translation(lightCube.getX(), lightCube.getY(), lightCube.getZ());
 		mvStack.pushMatrix();
 		mvStack.scale(0.2f, 0.2f, 0.2f);
-	
+
 		mMat.identity();
 		mMat.set(mvStack);
 		mMat.invert(invTrMat);
@@ -542,23 +545,17 @@ public class Code extends JFrame implements GLEventListener
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
 
-		shadowMVP2.identity();
-		shadowMVP2.mul(b);
-		shadowMVP2.mul(lightPmat);
-		shadowMVP2.mul(lightVmat);
-		shadowMVP2.mul(mMat);
-
 		// put matrices into uniforms
 		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
-		gl.glUniformMatrix4fv(sLoc, 1, false, shadowMVP2.get(vals));
 
 		// associate VBO with the corresponding vertex attribute in the vertex shader
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[0]);
 		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
+
 
 		//adjust OpenGL and draw cube
 		if(lightOn) {
@@ -566,17 +563,10 @@ public class Code extends JFrame implements GLEventListener
 		}
 		mvStack.popMatrix();
 
-
 		// ======================================================================= duck obj
 		mvStack.pushMatrix();
-		mvStack.translation(objLocX, objLocY, objLocZ);
-		objLocX += 2.0f * deltaTime;
-		if(objLocX > 4.0f){
-			objLocX = -4.0f;
-		}
+		mvStack.translation(duckPosition);
 		mvStack.pushMatrix();
-		float radians = (float) Math.toRadians(-90);
-		//mvStack.rotate(radians, 0.0f, 1.0f, 0.0f);
 
 		mMat.identity();
 		mMat.set(mvStack);
@@ -628,13 +618,18 @@ public class Code extends JFrame implements GLEventListener
 		
 		gl.glDrawArrays(GL_TRIANGLES, 0, duckModel.getNumVertices());
 		mvStack.popMatrix();
-
+		
 
 		// ======================================================================= duckling obj
 		mvStack.pushMatrix();
-		mvStack.translate(((float)Math.sin(tf)*2.0f), 0.0f, ((float)Math.cos(tf)*2.0f));
+		mvStack.translate(ducklingPosition);
 		mvStack.pushMatrix();
-		//mvStack.rotate((float)tf, 0.0f, 1.0f, 0.0f);
+
+		shadowMVP2.identity();
+		shadowMVP2.mul(b);
+		shadowMVP2.mul(lightPmat);
+		shadowMVP2.mul(lightVmat);
+		shadowMVP2.mul(mMat);
 
 		mMat.identity();
 		mMat.set(mvStack);
@@ -643,11 +638,6 @@ public class Code extends JFrame implements GLEventListener
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
 
-		shadowMVP2.identity();
-		shadowMVP2.mul(b);
-		shadowMVP2.mul(lightPmat);
-		shadowMVP2.mul(lightVmat);
-		shadowMVP2.mul(mMat);
 
 		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
@@ -674,14 +664,8 @@ public class Code extends JFrame implements GLEventListener
 		gl.glVertexAttribPointer(2, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(2);
 
-		gl.glClear(GL_DEPTH_BUFFER_BIT);
-		gl.glEnable(GL_CULL_FACE);
-		gl.glFrontFace(GL_CCW);
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDepthFunc(GL_LEQUAL);
-	
-		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[4]);
-		gl.glDrawElements(GL_TRIANGLES, ducklingObjVertices, GL_UNSIGNED_INT, 0);
 		
 		gl.glDrawArrays(GL_TRIANGLES, 0, ducklingModel.getNumVertices());
 		mvStack.popMatrix();
@@ -689,6 +673,7 @@ public class Code extends JFrame implements GLEventListener
 		mvStack.popMatrix();
 		mvStack.popMatrix();
 		mvStack.popMatrix();
+		
 	}
 
 	public void addMouseMotion(GLCanvas myCanvas) {

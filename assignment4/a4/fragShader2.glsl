@@ -4,6 +4,7 @@ in vec3 varyingNormal;
 in vec3 varyingLightDir;
 in vec3 varyingVertPos;
 in vec3 varyingHalfVector;
+in vec4 shadow_coord;
 in vec2 tc;
 out vec4 color;
 
@@ -29,7 +30,8 @@ layout (binding=0) uniform sampler2D s;
 layout (binding=1) uniform sampler2DShadow shadowTex;
 
 float lookup(float x, float y)
-{  	float t = textureProj(shadowTex, shadow_coord + vec4(x * 0.001 * shadow_coord.w,
+{  	
+	float t = textureProj(shadowTex, shadow_coord + vec4(x * 0.001 * shadow_coord.w,
                                                          y * 0.001 * shadow_coord.w,
                                                          -0.01, 0.0));
 	return t;
@@ -84,7 +86,16 @@ void main(void)
 	
 	vec4 texColor = texture(s, tc);
 	vec4 lightColor = vec4((ambient + (diffuse * intensity) + (specular * intensity)), 1.0);
+	
+	// texture with light
 	color = (texColor * lightColor);
 
-	color = vec4((shadowColor.xyz + shadowFactor*(texColor*lightColor)), 1.0);
+	// Apply shadow color and factor to the final color
+    //vec3 finalColor = shadowColor.xyz + shadowFactor * (texColor.xyz * lightColor.xyz);
+    //color = vec4(finalColor, 1.0);
+
+	// Output shadowFactor to screen or console
+    // Replace "output_location" with the appropriate location for your output
+    // For example, gl_FragColor or a custom output variable
+    //color = vec4(shadowFactor);  // Output as grayscale value
 }
