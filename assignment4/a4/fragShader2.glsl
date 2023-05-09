@@ -39,7 +39,7 @@ float lookup(float x, float y)
 
 void main(void)
 {	
-	float shadowFactor=0.0;
+	float shadowFactor=0.5;
 
 	// normalize the light, normal, and view vectors:
 	vec3 L = normalize(varyingLightDir);
@@ -91,8 +91,8 @@ void main(void)
 	color = (texColor * lightColor);
 
 	// Apply shadow color and factor to the final color
-    //vec3 finalColor = shadowColor.xyz + shadowFactor * (texColor.xyz * lightColor.xyz);
-    //color = vec4(finalColor, 1.0);
+    // vec3 finalColor = shadowColor.xyz + shadowFactor * (texColor.xyz * lightColor.xyz);
+    // color = vec4(finalColor, 1.0);
 
 	// Output shadowFactor to screen or console
     // Replace "output_location" with the appropriate location for your output
