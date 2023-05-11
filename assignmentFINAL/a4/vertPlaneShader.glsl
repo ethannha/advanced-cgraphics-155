@@ -1,8 +1,8 @@
 #version 430
 
-layout (location=0) in vec3 position;
-layout (location=1) in vec3 normal;
-layout (location=2) in vec2 tex_coord;
+layout (location=3) in vec3 position;
+layout (location=4) in vec3 normal;
+layout (location=5) in vec2 tex_coord;
 out vec3 varyingNormal;
 out vec3 varyingLightDir;
 out vec3 varyingVertPos;
@@ -29,7 +29,7 @@ uniform mat4 m_matrix;
 uniform mat4 v_matrix;
 uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
-layout (binding=0) uniform sampler2D s;
+layout (binding=1) uniform sampler2D s;
 
 void main(void)
 {	

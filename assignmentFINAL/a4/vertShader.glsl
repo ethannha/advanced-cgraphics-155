@@ -1,7 +1,7 @@
 #version 430
 
-layout (location=0) in vec3 position;
-layout (location=1) in vec3 normal;
+layout (location=0) in vec3 vertPosition;
+layout (location=1) in vec3 vertNormal;
 layout (location=2) in vec2 tex_coord;
 out vec3 varyingNormal;
 out vec3 varyingLightDir;
@@ -32,14 +32,12 @@ uniform mat4 norm_matrix;
 layout (binding=0) uniform sampler2D s;
 
 void main(void)
-{	
-	varyingVertPos = (m_matrix * vec4(position,1.0)).xyz;
+{	mat4 mv_matrix = v_matrix * m_matrix;
+	varyingVertPos = (m_matrix * vec4(vertPosition,1.0)).xyz;
 	varyingLightDir = light.position - varyingVertPos;
-	varyingNormal = (norm_matrix * vec4(normal,1.0)).xyz;
-	varyingHalfVector =
-		normalize(normalize(varyingLightDir)
-		+ normalize(-varyingVertPos)).xyz;
+	varyingNormal = (norm_matrix * vec4(vertNormal,1.0)).xyz;
+	varyingHalfVector = normalize(normalize(varyingLightDir) + normalize(-varyingVertPos)).xyz;
 
-	gl_Position = p_matrix * v_matrix * m_matrix * vec4(position,1.0);
+	gl_Position = p_matrix * v_matrix * m_matrix * vec4(vertPosition,1.0);
 	tc = tex_coord;
 }

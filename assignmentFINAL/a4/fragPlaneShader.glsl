@@ -28,7 +28,7 @@ uniform mat4 m_matrix;
 uniform mat4 v_matrix;
 uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
-layout (binding=0) uniform sampler2D s;
+layout (binding=1) uniform sampler2D s;
 
 void main(void)
 {	

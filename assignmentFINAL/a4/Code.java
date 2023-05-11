@@ -45,7 +45,7 @@ public class Code extends JFrame implements GLEventListener
 	private Matrix4f pMat = new Matrix4f();  // perspective matrix
 	private Matrix4f vMat = new Matrix4f();  // view matrix
 	private Matrix4f mMat = new Matrix4f();  // model matrix
-	private Matrix4fStack mvStack = new Matrix4fStack(9);
+	private Matrix4fStack mvStack = new Matrix4fStack(10);
 	private Matrix4f invTrMat = new Matrix4f(); // inverse-transpose
 	private int axesvLoc, axespLoc, mLoc, vLoc, pLoc, nLoc;
 	private float aspect;
@@ -78,6 +78,9 @@ public class Code extends JFrame implements GLEventListener
 	// object variables
 	private int skyboxTexture, duckTexture, ducklingTexture, planeTexture, signTexture, wellTexture1, wellTexture2;
 	private ImportedModel duckModel, ducklingModel, signModel, wellModel;
+
+	// tunable interocular distance – we arrived at 0.01 for this scene by trial-and-error
+	private float IOD = 0.01f;
 
 	public Code()
 	{	setTitle("CSC 155 - Assignment 3");
@@ -134,6 +137,16 @@ public class Code extends JFrame implements GLEventListener
 		lightOn = true;
 
 	}
+
+	// private void computePerspectiveMatrix(float leftRight)
+	// {
+	// 	float top = (float)Math.tan(fov/2.0f) * (float)near;
+	// 	float bottom = -top;
+	// 	float frustumShift = (IOD/2.0f) * near/far;
+	// 	float left = -aspect * top - frustumShift * leftRight;
+	// 	float right = aspect * top - frustumShift * leftRIght;
+	// 	pMat.setFrustum(left,right,bottom,top,near,far);
+	// }
 	
 	private void installLights(int renderingProgram)
 	{	
@@ -193,39 +206,7 @@ public class Code extends JFrame implements GLEventListener
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
 		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
 
-		// ====== RENDER PLANE PROGRAM ======
-		gl.glUseProgram(planeProgram);
-
-		vLoc = gl.glGetUniformLocation(planeProgram, "v_matrix");
-		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
-		pLoc = gl.glGetUniformLocation(planeProgram, "p_matrix");
-		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		
-		//============================================================================ render the plane
-		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
-		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
-
-		//vertices
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
-		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(0);
-		//normals
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
-		gl.glVertexAttribPointer(1, 3, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(1);
-		//texture
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
-		gl.glVertexAttribPointer(2, 2, GL_FLOAT, false, 0, 0);
-		gl.glEnableVertexAttribArray(2);
-
-		gl.glActiveTexture(GL_TEXTURE0);
-		gl.glBindTexture(GL_TEXTURE_2D, planeTexture);
-		gl.glGenerateMipmap(GL_TEXTURE_2D);
-
-		gl.glDrawArrays(GL_TRIANGLES, 0, 6);
-
-
 		// ====== RENDER CUBE MAP PROGRAM ======
 		gl.glUseProgram(cubemapProgram);
 
@@ -263,6 +244,69 @@ public class Code extends JFrame implements GLEventListener
 			gl.glDrawArrays(GL_LINES, 0, 6);
 		}
 
+		// ====== RENDER PLANE PROGRAM ======
+		gl.glUseProgram(planeProgram);
+
+		
+		mLoc = gl.glGetUniformLocation(planeProgram, "m_matrix");
+		vLoc = gl.glGetUniformLocation(planeProgram, "v_matrix");
+		pLoc = gl.glGetUniformLocation(planeProgram, "p_matrix");
+		nLoc = gl.glGetUniformLocation(planeProgram, "norm_matrix");
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+		
+		//============================================================================ render the plane
+		
+		currentLightPos.set(lightCube.getLocation());
+		installLights(planeProgram);
+
+		mvStack.pushMatrix();
+		mvStack.translation(duckX, duckY, duckZ);
+		mvStack.scale(1.0f, 1.0f, 1.0f);
+		mvStack.pushMatrix();
+
+		mMat.identity();
+		mMat.set(mvStack);
+		mMat.invert(invTrMat);
+
+		invTrMat.identity();
+		invTrMat.transpose(invTrMat);
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+		
+
+		//vertices
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
+		gl.glVertexAttribPointer(3, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(3);
+		//texture
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[2]);
+		gl.glVertexAttribPointer(4, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(4);
+		//normals
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
+		gl.glVertexAttribPointer(5, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(5);
+
+		gl.glActiveTexture(GL_TEXTURE1);
+		gl.glBindTexture(GL_TEXTURE_2D, planeTexture);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+		gl.glGenerateMipmap(GL_TEXTURE_2D);
+
+		gl.glDrawArrays(GL_TRIANGLES, 0, 6);
+		mvStack.popMatrix();
+
+
+
 		// ======= RENDER OBJECTS PROGRAM =======
 		gl.glUseProgram(renderingProgram);
 		mLoc = gl.glGetUniformLocation(renderingProgram, "m_matrix");
@@ -274,6 +318,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 
 		// ======== CAMERA/VIEW MATRIX SET UP ========
 		vMat.identity();
@@ -497,6 +542,7 @@ public class Code extends JFrame implements GLEventListener
 		mvStack.popMatrix();
 		mvStack.popMatrix();
 		mvStack.popMatrix();
+		mvStack.popMatrix();
 
 	}
 
@@ -543,18 +589,18 @@ public class Code extends JFrame implements GLEventListener
 		Vector3f[] normals = duckModel.getNormals();
 		
 		float[] duckPvalues = new float[duckModel.getNumVertices()*3];
-		float[] duckTvalues = new float[duckModel.getNumVertices()*2];
 		float[] duckNvalues = new float[duckModel.getNumVertices()*3];
+		float[] duckTvalues = new float[duckModel.getNumVertices()*2];
 		
 		for (int i=0; i<duckModel.getNumVertices(); i++)
 		{	duckPvalues[i*3]   = (float) (vertices[i]).x();
 			duckPvalues[i*3+1] = (float) (vertices[i]).y();
 			duckPvalues[i*3+2] = (float) (vertices[i]).z();
-			duckTvalues[i*2]   = (float) (texCoords[i]).x();
-			duckTvalues[i*2+1] = (float) (texCoords[i]).y();
 			duckNvalues[i*3]   = (float) (normals[i]).x();
 			duckNvalues[i*3+1] = (float) (normals[i]).y();
 			duckNvalues[i*3+2] = (float) (normals[i]).z();
+			duckTvalues[i*2]   = (float) (texCoords[i]).x();
+			duckTvalues[i*2+1] = (float) (texCoords[i]).y();
 		}
 
 		// duckling object
@@ -563,18 +609,18 @@ public class Code extends JFrame implements GLEventListener
 		Vector3f[] normals2 = ducklingModel.getNormals();
 		
 		float[] ducklingPvalues = new float[ducklingModel.getNumVertices()*3];
-		float[] ducklingTvalues = new float[ducklingModel.getNumVertices()*2];
 		float[] ducklingNvalues = new float[ducklingModel.getNumVertices()*3];
+		float[] ducklingTvalues = new float[ducklingModel.getNumVertices()*2];
 
 		for (int i=0; i<ducklingModel.getNumVertices(); i++)
 		{	ducklingPvalues[i*3]   = (float) (vertices2[i]).x();
 			ducklingPvalues[i*3+1] = (float) (vertices2[i]).y();
 			ducklingPvalues[i*3+2] = (float) (vertices2[i]).z();
-			ducklingTvalues[i*2]   = (float) (texCoords2[i]).x();
-			ducklingTvalues[i*2+1] = (float) (texCoords2[i]).y();
 			ducklingNvalues[i*3]   = (float) (normals2[i]).x();
 			ducklingNvalues[i*3+1] = (float) (normals2[i]).y();
 			ducklingNvalues[i*3+2] = (float) (normals2[i]).z();
+			ducklingTvalues[i*2]   = (float) (texCoords2[i]).x();
+			ducklingTvalues[i*2+1] = (float) (texCoords2[i]).y();
 		}
 
 		// sign object
@@ -583,18 +629,18 @@ public class Code extends JFrame implements GLEventListener
 		Vector3f[] normals3 = signModel.getNormals();
 		
 		float[] signPvalues = new float[signModel.getNumVertices()*3];
-		float[] signTvalues = new float[signModel.getNumVertices()*2];
 		float[] signNvalues = new float[signModel.getNumVertices()*3];
+		float[] signTvalues = new float[signModel.getNumVertices()*2];
 
 		for (int i=0; i<signModel.getNumVertices(); i++)
 		{	signPvalues[i*3]   = (float) (vertices3[i]).x();
 			signPvalues[i*3+1] = (float) (vertices3[i]).y();
 			signPvalues[i*3+2] = (float) (vertices3[i]).z();
-			signTvalues[i*2]   = (float) (texCoords3[i]).x();
-			signTvalues[i*2+1] = (float) (texCoords3[i]).y();
 			signNvalues[i*3]   = (float) (normals3[i]).x();
 			signNvalues[i*3+1] = (float) (normals3[i]).y();
 			signNvalues[i*3+2] = (float) (normals3[i]).z();
+			signTvalues[i*2]   = (float) (texCoords3[i]).x();
+			signTvalues[i*2+1] = (float) (texCoords3[i]).y();
 		}
 
 		// well object
@@ -603,18 +649,18 @@ public class Code extends JFrame implements GLEventListener
 		Vector3f[] normals4 = wellModel.getNormals();
 		
 		float[] wellPvalues = new float[wellModel.getNumVertices()*3];
-		float[] wellTvalues = new float[wellModel.getNumVertices()*2];
 		float[] wellNvalues = new float[wellModel.getNumVertices()*3];
+		float[] wellTvalues = new float[wellModel.getNumVertices()*2];
 
 		for (int i=0; i<wellModel.getNumVertices(); i++)
 		{	wellPvalues[i*3]   = (float) (vertices4[i]).x();
 			wellPvalues[i*3+1] = (float) (vertices4[i]).y();
 			wellPvalues[i*3+2] = (float) (vertices4[i]).z();
-			wellTvalues[i*2]   = (float) (texCoords4[i]).x();
-			wellTvalues[i*2+1] = (float) (texCoords4[i]).y();
 			wellNvalues[i*3]   = (float) (normals4[i]).x();
 			wellNvalues[i*3+1] = (float) (normals4[i]).y();
 			wellNvalues[i*3+2] = (float) (normals4[i]).z();
+			wellTvalues[i*2]   = (float) (texCoords4[i]).x();
+			wellTvalues[i*2+1] = (float) (texCoords4[i]).y();
 		}
 
 		// buffers definition

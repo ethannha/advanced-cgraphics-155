@@ -5,7 +5,7 @@ in vec3 varyingLightDir;
 in vec3 varyingVertPos;
 in vec3 varyingHalfVector;
 in vec2 tc;
-out vec4 color;
+out vec4 fragColor;
 
 struct PositionalLight
 {	vec4 ambient;  
@@ -53,5 +53,5 @@ void main(void)
 	
 	vec4 texColor = texture(s, tc);
 	vec4 lightColor = vec4((ambient + (diffuse * intensity) + (specular * intensity)), 1.0);
-	color = (texColor * lightColor);
+	fragColor = (texColor * lightColor);
 }
