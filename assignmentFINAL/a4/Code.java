@@ -94,7 +94,7 @@ public class Code extends JFrame implements GLEventListener
 	private int numSphereVertices;
 
 
-	private Torus myTorus = new Torus(1.0f, 0.5f, 48);
+	private Torus myTorus = new Torus(0.8f, 1.0f, 48);
 	private int numTorusVertices, numTorusIndices;
 
 
@@ -167,7 +167,7 @@ public class Code extends JFrame implements GLEventListener
 		signX = -1.5f; 		signY = -0.2f; 		signZ = -0.8f;
 		wellX = 0.0f; 		wellY = -0.2f; 		wellZ = -3.0f;
 		sphereX = 2.0f; 	sphereY = 3.0f; 	sphereZ = 2.0f;
-		reflectX = 0.0f; 	reflectY = 1.0f; 	reflectZ = 0.0f;
+		reflectX = 0.1f; 	reflectY = 0.4f; 	reflectZ = -3.05f;
 
 	}
 
@@ -705,11 +705,6 @@ public class Code extends JFrame implements GLEventListener
 
 
 	}
-
-
-
-	
-
 	
 	private void setupVertices()
 	{	
@@ -730,6 +725,7 @@ public class Code extends JFrame implements GLEventListener
 			-1.0f,  1.0f, -1.0f, 1.0f,  1.0f, -1.0f, 1.0f,  1.0f,  1.0f,
 			1.0f,  1.0f,  1.0f, -1.0f,  1.0f,  1.0f, -1.0f,  1.0f, -1.0f
 		};
+/*
 		float[] PLANE_POSITIONS = {
 			-60.0f, 0.0f, -60.0f,  -60.0f, 0.0f, 60.0f,  60.0f, 0.0f, -60.0f,  
 			60.0f, 0.0f, -60.0f,  -60.0f, 0.0f, 60.0f,  60.0f, 0.0f, 60.0f
@@ -742,7 +738,7 @@ public class Code extends JFrame implements GLEventListener
 			0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f,
 			0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f,  0.0f, 1.0f, 0.0f
 		};
-		
+*/	
 		// duck object
 		Vector3f[] vertices = duckModel.getVertices();
 		Vector2f[] texCoords = duckModel.getTexCoords();
@@ -884,6 +880,7 @@ public class Code extends JFrame implements GLEventListener
 		FloatBuffer cubeBuf = Buffers.newDirectFloatBuffer(cubePositions);
 		gl.glBufferData(GL_ARRAY_BUFFER, cubeBuf.limit()*4, cubeBuf, GL_STATIC_DRAW);
 
+/*
 		// plane vertices
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[1]);
 		FloatBuffer planeVertBuf = Buffers.newDirectFloatBuffer(PLANE_POSITIONS);
@@ -896,7 +893,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[3]);
 		FloatBuffer planeTexBuf = Buffers.newDirectFloatBuffer(PLANE_TEXCOORDS);
 		gl.glBufferData(GL_ARRAY_BUFFER, planeTexBuf.limit()*4, planeTexBuf, GL_STATIC_DRAW);
-
+ */
 		// duck vertices
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[4]);
 		FloatBuffer duckVertBuf = Buffers.newDirectFloatBuffer(duckPvalues);
