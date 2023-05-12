@@ -248,7 +248,6 @@ public class Code extends JFrame implements GLEventListener
 
 		gl.glColorMask(true, true, true, true);
 		gl.glClear(GL_COLOR_BUFFER_BIT);
-		gl.glClearColor(0.7f, 0.8f, 0.8f, 1.0f); // background fog color is bluish-grey
 		gl.glClear(GL_DEPTH_BUFFER_BIT);
 
 		// ====== TIME ELAPSED AND FRAMES SET UP ======
