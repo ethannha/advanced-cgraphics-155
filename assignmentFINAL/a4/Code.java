@@ -43,7 +43,7 @@ public class Code extends JFrame implements GLEventListener
 
 	private float xOffset, yOffset;
 	private Camera cam;
-	private boolean axesOn, lightOn;
+	private boolean axesOn, lightOn, is3DOn;
 
 	// allocate variables for display() function
 	private FloatBuffer vals = Buffers.newDirectFloatBuffer(16);  // buffer for transfering matrix to uniform
@@ -164,6 +164,7 @@ public class Code extends JFrame implements GLEventListener
 
 		axesOn = false;
 		lightOn = true;
+		is3DOn = true;
 		
 		cameraX = 1.5f; cameraY = 2.0f; cameraZ = 6.0f;
 		Vector3f camLoc = new Vector3f(cameraX, cameraY, cameraZ);
@@ -260,18 +261,23 @@ public class Code extends JFrame implements GLEventListener
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
 		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
 
-		gl.glColorMask(true, false, false, false);
-		scene(-2.0f);
-				
-		gl.glClear(GL_DEPTH_BUFFER_BIT);
+		if(is3DOn == true) {
+			gl.glColorMask(true, false, false, false);
+			scene(-5.0f);
+			gl.glClear(GL_DEPTH_BUFFER_BIT);
+			gl.glColorMask(false, true, true, false);
+			scene(4.0f);
+		} else {
+			gl.glColorMask(true, true, true, false);
+			scene(0.0f);
+		}
 		
-		gl.glColorMask(false, true, true, false);
-		scene(2.0f);
 	}
 
 	public void scene(float leftRight) 
 	{	
 		GL4 gl = (GL4) GLContext.getCurrentGL();
+
 		computePerspectiveMatrix(leftRight);
 
 		// ======== CAMERA/VIEW MATRIX SET UP ========
@@ -1346,6 +1352,9 @@ public class Code extends JFrame implements GLEventListener
 								break;
 							case KeyEvent.VK_F:
 								lightOn = !lightOn;
+								break;
+							case KeyEvent.VK_G:
+								is3DOn = !is3DOn;
 								break;
 						}
 					}
