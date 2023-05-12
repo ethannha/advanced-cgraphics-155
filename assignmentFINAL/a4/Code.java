@@ -37,7 +37,7 @@ public class Code extends JFrame implements GLEventListener
 	private float ducklingX, ducklingY, ducklingZ;
 	private float signX, signY, signZ;
 	private float wellX, wellY, wellZ;
-	private float moonX, moonY, moonZ;
+	private float sunX, sunY, sunZ;
 	private float snowmanX, snowmanY, snowmanZ;
 	private float reflectX, reflectY, reflectZ;
 
@@ -73,10 +73,10 @@ public class Code extends JFrame implements GLEventListener
 	private float thisShi;
 
 	// custom material properties
-	private float[] matAmb = new float[] { 0.5f, 0.7f, 0.8f, 1.0f };
-	private float[] matDif = new float[] { 0.8f, 0.9f, 1.0f, 1.0f };
-	private float[] matSpe = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
-	private float matShi = 20.0f;
+	private float[] matAmb1 = new float[] { 0.5f, 0.7f, 0.8f, 1.0f };
+	private float[] matDif1 = new float[] { 0.8f, 0.9f, 1.0f, 1.0f };
+	private float[] matSpe1 = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
+	private float matShi1 = 20.0f;
 
 	// gold material properties
 	private float[] matAmb2 = Utils.goldAmbient();
@@ -84,14 +84,20 @@ public class Code extends JFrame implements GLEventListener
 	private float[] matSpe2 = Utils.goldSpecular();
 	private float matShi2 = Utils.goldShininess();
 
+	// silver material properties
+	private float[] matAmb3 = Utils.silverAmbient();
+	private float[] matDif3 = Utils.silverDiffuse();
+	private float[] matSpe3 = Utils.silverSpecular();
+	private float matShi3 = Utils.silverShininess();
+
 	// object variables
 	private int planeTexture, planeHeight, planeNormalMap;
 	private int skyboxTexture, duckTexture, ducklingTexture, signTexture, wellTexture;
 	private ImportedModel duckModel, ducklingModel, signModel, wellModel;
 
 	private Sphere mySphere = new Sphere(48);
-	private int moonNormalMap;
-	private int moonTexture;
+	private int sunNormalMap;
+	private int sunTexture;
 	private int numSphereVertices;
 
 
@@ -141,8 +147,8 @@ public class Code extends JFrame implements GLEventListener
 
 		// object textures
 		normalMapProgram = Utils.createShaderProgram("a4/vertNormalShader.glsl", "a4/fragNormalShader.glsl");
-		moonTexture = Utils.loadTexture("assets/textures/moon.jpg");
-		moonNormalMap = Utils.loadTexture("assets/textures/moonNORMAL.jpg");
+		sunTexture = Utils.loadTexture("assets/textures/sun.jpg");
+		sunNormalMap = Utils.loadTexture("assets/textures/sun_normal.jpg");
 
 		duckTexture = Utils.loadTextureAWT("assets/textures/duck_uv.png");
 		ducklingTexture = Utils.loadTextureAWT("assets/textures/duckling_uv.png");
@@ -174,9 +180,15 @@ public class Code extends JFrame implements GLEventListener
 		ducklingX = 0.0f; 	ducklingY = 1.83f; 	ducklingZ = -1.5f;
 		signX = -1.5f; 		signY = -0.2f; 		signZ = -0.8f;
 		wellX = 0.0f; 		wellY = -0.2f; 		wellZ = -3.0f;
-		moonX = 4.0f; 		moonY = 12.0f; 		moonZ = -8.0f;
+		sunX = 4.0f; 		sunY = 12.0f; 		sunZ = -8.0f;
 		snowmanX = 5.0f; 	snowmanY = 0.5f; 	snowmanZ = -2.0f;
 		reflectX = 0.1f; 	reflectY = 0.4f; 	reflectZ = -3.05f;
+
+		//initially use custom material
+		thisAmb = matAmb1;
+		thisDif = matDif1;
+		thisSpe = matSpe1;
+		thisShi = matShi1;
 	}
 
 	
@@ -215,10 +227,10 @@ public class Code extends JFrame implements GLEventListener
 		gl.glProgramUniform4fv(renderingProgram, diffLoc, 1, lightDiffuse, 0);
 		gl.glProgramUniform4fv(renderingProgram, specLoc, 1, lightSpecular, 0);
 		gl.glProgramUniform3fv(renderingProgram, posLoc, 1, lightPos, 0);
-		gl.glProgramUniform4fv(renderingProgram, mambLoc, 1, matAmb, 0);
-		gl.glProgramUniform4fv(renderingProgram, mdiffLoc, 1, matDif, 0);
-		gl.glProgramUniform4fv(renderingProgram, mspecLoc, 1, matSpe, 0);
-		gl.glProgramUniform1f(renderingProgram, mshiLoc, matShi);
+		gl.glProgramUniform4fv(renderingProgram, mambLoc, 1, thisAmb, 0);
+		gl.glProgramUniform4fv(renderingProgram, mdiffLoc, 1, thisDif, 0);
+		gl.glProgramUniform4fv(renderingProgram, mspecLoc, 1, thisSpe, 0);
+		gl.glProgramUniform1f(renderingProgram, mshiLoc, thisShi);
 	}
 
 	private void computePerspectiveMatrix(float leftRight)
@@ -256,17 +268,13 @@ public class Code extends JFrame implements GLEventListener
 		
 		gl.glColorMask(false, true, true, false);
 		scene(2.0f);
-
 	}
-
 
 	public void scene(float leftRight) 
 	{	
 		GL4 gl = (GL4) GLContext.getCurrentGL();
-
 		computePerspectiveMatrix(leftRight);
 
-		
 		// ======== CAMERA/VIEW MATRIX SET UP ========
 		vMat.identity();
 		mvStack.pushMatrix();
@@ -415,7 +423,6 @@ public class Code extends JFrame implements GLEventListener
 		pLoc = gl.glGetUniformLocation(renderingProgram, "p_matrix");
 		nLoc = gl.glGetUniformLocation(renderingProgram, "norm_matrix");
 
-
 		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
@@ -473,6 +480,10 @@ public class Code extends JFrame implements GLEventListener
 
 
 // ======================================================================= duckling obj
+		thisAmb = matAmb2;
+		thisDif = matDif2;
+		thisSpe = matSpe2;
+		thisShi = matShi2;
 
 		mvStack.pushMatrix();
 		mvStack.translation(ducklingX, ducklingY, ducklingZ);
@@ -576,6 +587,10 @@ public class Code extends JFrame implements GLEventListener
 
 
 // ======================================================================= well obj
+		thisAmb = matAmb1;
+		thisDif = matDif1;
+		thisSpe = matSpe1;
+		thisShi = matShi1;
 
 		mvStack.pushMatrix();
 		mvStack.translation(wellX, wellY, wellZ);
@@ -642,10 +657,10 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 		
-//==================================================== render normal mapped moon sphere
+//==================================================== render normal mapped sun sphere
 
 		mvStack.pushMatrix();
-		mvStack.translation(moonX, moonY, moonZ);
+		mvStack.translation(sunX, sunY, sunZ);
 		mvStack.scale(3.0f, 3.0f, 3.0f);
 		mvStack.pushMatrix();
 
@@ -684,10 +699,10 @@ public class Code extends JFrame implements GLEventListener
 		gl.glEnableVertexAttribArray(6);
 		
 		gl.glActiveTexture(GL_TEXTURE2);
-		gl.glBindTexture(GL_TEXTURE_2D, moonNormalMap);
+		gl.glBindTexture(GL_TEXTURE_2D, sunNormalMap);
 
 		gl.glActiveTexture(GL_TEXTURE3);
-		gl.glBindTexture(GL_TEXTURE_2D, moonTexture);
+		gl.glBindTexture(GL_TEXTURE_2D, sunTexture);
 
 		gl.glEnable(GL_CULL_FACE);
 		gl.glFrontFace(GL_CCW);
@@ -712,6 +727,11 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 
 //==================================================== render geometry addition snowball
+		
+		thisAmb = matAmb1;
+		thisDif = matDif1;
+		thisSpe = matSpe1;
+		thisShi = matShi1;
 
 		mvStack.pushMatrix();
 		mvStack.translation(snowmanX, snowmanY, snowmanZ);
@@ -1024,7 +1044,7 @@ public class Code extends JFrame implements GLEventListener
 		}
 
 
-		//moon
+		//sun
 		numSphereVertices = mySphere.getIndices().length;
 		
 		int[] indices = mySphere.getIndices();
