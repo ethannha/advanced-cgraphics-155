@@ -37,7 +37,7 @@ uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
 
 void main(void)
-{	varyingVertPos = (v_matrix * vec4(vertPos,1.0)).xyz;
+{	varyingVertPos = (m_matrix * vec4(vertPos,1.0)).xyz;
 	varyingLightDir = light.position - varyingVertPos;
 	tc = texCoord;
 	

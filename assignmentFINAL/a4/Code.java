@@ -21,9 +21,9 @@ import org.joml.*;
 public class Code extends JFrame implements GLEventListener
 {	
 	private GLCanvas myCanvas;
-	private int renderingProgram, axesProgram, cubeMapProgram, planeProgram, normalMapProgram, envMapProgram;
+	private int renderingProgram, axesProgram, cubeMapProgram, planeProgram, normalMapProgram, envMapProgram, geometryProgram, lightCubeProgram;
 	private int vao[] = new int[1];
-	private int vbo[] = new int[23];
+	private int vbo[] = new int[28];
 	private double startTime = 0.0;
 	private double elapsedTime;
 	private double tf;
@@ -37,9 +37,9 @@ public class Code extends JFrame implements GLEventListener
 	private float ducklingX, ducklingY, ducklingZ;
 	private float signX, signY, signZ;
 	private float wellX, wellY, wellZ;
-	private float sphereX, sphereY, sphereZ;
+	private float moonX, moonY, moonZ;
+	private float snowmanX, snowmanY, snowmanZ;
 	private float reflectX, reflectY, reflectZ;
-
 
 	private float xOffset, yOffset;
 	private Camera cam;
@@ -51,9 +51,8 @@ public class Code extends JFrame implements GLEventListener
 	private Matrix4f vMat = new Matrix4f();  // view matrix
 	private Matrix4f mMat = new Matrix4f();  // model matrix
 	private Matrix4f mvMat = new Matrix4f(); // model-view matrix
-	private Matrix4fStack mvStack = new Matrix4fStack(11);
+	private Matrix4fStack mvStack = new Matrix4fStack(14);
 	private Matrix4f invTrMat = new Matrix4f(); // inverse-transpose
-	private Matrix4f cubeVmat = new Matrix4f();
 	private int axesvLoc, axespLoc, mLoc, vLoc, pLoc, nLoc, mvLoc;
 	private float aspect;
 
@@ -84,11 +83,10 @@ public class Code extends JFrame implements GLEventListener
 
 	// object variables
 	private int planeTexture, planeHeight, planeNormalMap;
-	private int skyboxTexture, duckTexture, ducklingTexture, signTexture, wellTexture1, wellTexture2;
+	private int skyboxTexture, duckTexture, ducklingTexture, signTexture, wellTexture;
 	private ImportedModel duckModel, ducklingModel, signModel, wellModel;
 
 	private Sphere mySphere = new Sphere(48);
-	private int roofTexture;
 	private int moonNormalMap;
 	private int moonTexture;
 	private int numSphereVertices;
@@ -96,6 +94,8 @@ public class Code extends JFrame implements GLEventListener
 
 	private Torus myTorus = new Torus(0.8f, 1.0f, 48);
 	private int numTorusVertices, numTorusIndices;
+	private Torus mySnowman = new Torus(0.1f, 2.0f, 48);
+	private int numSnowVertices, numSnowIndices;
 
 
 	public Code()
@@ -118,9 +118,11 @@ public class Code extends JFrame implements GLEventListener
 		lastFrame = System.currentTimeMillis();
 		axesProgram = Utils.createShaderProgram("a4/vertAxesShader.glsl", "a4/fragAxesShader.glsl");
 		renderingProgram = Utils.createShaderProgram("a4/vertShader.glsl", "a4/fragShader.glsl");
+		lightCubeProgram = Utils.createShaderProgram("a4/vertLightQBShader.glsl", "a4/fragLightQBShader.glsl");
 		planeProgram = Utils.createShaderProgram("a4/vertTessShader.glsl", "a4/tessCShader.glsl", "a4/tessEShader.glsl", "a4/fragTessShader.glsl");
 		cubeMapProgram = Utils.createShaderProgram("a4/vertCubeShader.glsl", "a4/fragCubeShader.glsl");
 		envMapProgram = Utils.createShaderProgram("a4/vertEnvShader.glsl", "a4/fragEnvShader.glsl");
+		geometryProgram = Utils.createShaderProgram("a4/vertGeomAddShader.glsl", "a4/geomShader.glsl", "a4/fragGeomAddShader.glsl");
 
 		// object models
 		duckModel = new ImportedModel("assets/models/duck.obj");
@@ -131,15 +133,13 @@ public class Code extends JFrame implements GLEventListener
 
 		// object textures
 		normalMapProgram = Utils.createShaderProgram("a4/vertNormalShader.glsl", "a4/fragNormalShader.glsl");
-		roofTexture = Utils.loadTexture("assets/textures/castleroofNORMAL.jpg");
 		moonTexture = Utils.loadTexture("assets/textures/moon.jpg");
 		moonNormalMap = Utils.loadTexture("assets/textures/moonNORMAL.jpg");
 
 		duckTexture = Utils.loadTextureAWT("assets/textures/duck_uv.png");
 		ducklingTexture = Utils.loadTextureAWT("assets/textures/duckling_uv.png");
 		signTexture = Utils.loadTextureAWT("assets/textures/sign_uv.png");
-		wellTexture1 = Utils.loadTextureAWT("assets/textures/blinn4_baseColor.jpg");
-		wellTexture2 = Utils.loadTextureAWT("assets/textures/blinn4_metallicRoughness.png");
+		wellTexture = Utils.loadTextureAWT("assets/textures/blinn4_baseColor.jpg");
 
 		planeTexture = Utils.loadTexture("assets/textures/terrain.jpg");
 		planeHeight = Utils.loadTexture("assets/textures/terrain_bump.jpg");
@@ -151,7 +151,7 @@ public class Code extends JFrame implements GLEventListener
 		axesOn = false;
 		lightOn = true;
 		
-		cameraX = 0.0f; cameraY = 2.0f; cameraZ = 6.0f;
+		cameraX = 1.5f; cameraY = 2.5f; cameraZ = 8.0f;
 		Vector3f camLoc = new Vector3f(cameraX, cameraY, cameraZ);
 		Vector3f tarLoc = new Vector3f(cameraX, cameraY, 0.0f);
 		cam = new Camera(camLoc, tarLoc);
@@ -166,9 +166,9 @@ public class Code extends JFrame implements GLEventListener
 		ducklingX = 0.0f; 	ducklingY = 1.83f; 	ducklingZ = -1.5f;
 		signX = -1.5f; 		signY = -0.2f; 		signZ = -0.8f;
 		wellX = 0.0f; 		wellY = -0.2f; 		wellZ = -3.0f;
-		sphereX = 2.0f; 	sphereY = 3.0f; 	sphereZ = 2.0f;
+		moonX = 4.0f; 		moonY = 12.0f; 		moonZ = -8.0f;
+		snowmanX = 5.0f; 	snowmanY = 0.5f; 	snowmanZ = -2.0f;
 		reflectX = 0.1f; 	reflectY = 0.4f; 	reflectZ = -3.05f;
-
 	}
 
 	
@@ -276,7 +276,8 @@ public class Code extends JFrame implements GLEventListener
 
 		mMat.identity();
 		mMat.set(mvStack);
-		mMat.invert(invTrMat);
+
+		mvStack.invert(invTrMat);
 
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
@@ -322,34 +323,21 @@ public class Code extends JFrame implements GLEventListener
 			gl.glDrawArrays(GL_LINES, 0, 6);
 		}
 
-		// ======= RENDER OBJECTS PROGRAM =======
-		gl.glUseProgram(renderingProgram);
-		mLoc = gl.glGetUniformLocation(renderingProgram, "m_matrix");
-		vLoc = gl.glGetUniformLocation(renderingProgram, "v_matrix");
-		pLoc = gl.glGetUniformLocation(renderingProgram, "p_matrix");
-		nLoc = gl.glGetUniformLocation(renderingProgram, "norm_matrix");
-
-
-		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
-		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
-		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
-		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
-
-		// ======== CAMERA/VIEW MATRIX SET UP ========
-		vMat.identity();
-		mvStack.pushMatrix();
-		vMat = cam.getViewMatrix();
-
-
+		// ======= RENDER LIGHT CUBE PROGRAM =======
+		gl.glUseProgram(lightCubeProgram);
+		mLoc = gl.glGetUniformLocation(lightCubeProgram, "m_matrix");
+		vLoc = gl.glGetUniformLocation(lightCubeProgram, "v_matrix");
+		pLoc = gl.glGetUniformLocation(lightCubeProgram, "p_matrix");
 // ======================================================================= light cube object
 		mvStack.pushMatrix();
 		mvStack.translation(lightCube.getX(), lightCube.getY(), lightCube.getZ());
-		mvStack.scale(0.15f, 0.15f, 0.15f);
+		mvStack.scale(0.1f, 0.1f, 0.1f);
 		mvStack.pushMatrix();
 	
 		mMat.identity();
 		mMat.set(mvStack);
-		mMat.invert(invTrMat);
+
+		mvStack.invert(invTrMat);
 
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
@@ -357,7 +345,7 @@ public class Code extends JFrame implements GLEventListener
 		// LIGHTING
 		// setup lights based on current light position
 		currentLightPos.set(lightCube.getLocation());
-		installLights(renderingProgram);
+		installLights(lightCubeProgram);
 
 		// put matrices into uniforms
 		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
@@ -377,6 +365,24 @@ public class Code extends JFrame implements GLEventListener
 		mvStack.popMatrix();
 
 
+		// ======= RENDER OBJECTS PROGRAM =======
+		gl.glUseProgram(renderingProgram);
+		mLoc = gl.glGetUniformLocation(renderingProgram, "m_matrix");
+		vLoc = gl.glGetUniformLocation(renderingProgram, "v_matrix");
+		pLoc = gl.glGetUniformLocation(renderingProgram, "p_matrix");
+		nLoc = gl.glGetUniformLocation(renderingProgram, "norm_matrix");
+
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+
+		// ======== CAMERA/VIEW MATRIX SET UP ========
+		vMat.identity();
+		mvStack.pushMatrix();
+		vMat = cam.getViewMatrix();
+
 // ======================================================================= duck obj
 		mvStack.pushMatrix();
 		mvStack.translation(duckX, duckY, duckZ);
@@ -385,7 +391,8 @@ public class Code extends JFrame implements GLEventListener
 
 		mMat.identity();
 		mMat.set(mvStack);
-		mMat.invert(invTrMat);
+
+		mvStack.invert(invTrMat);
 
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
@@ -436,7 +443,8 @@ public class Code extends JFrame implements GLEventListener
 
 		mMat.identity();
 		mMat.set(mvStack);
-		mMat.invert(invTrMat);
+
+		mvStack.invert(invTrMat);
 
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
@@ -487,7 +495,8 @@ public class Code extends JFrame implements GLEventListener
 
 		mMat.identity();
 		mMat.set(mvStack);
-		mMat.invert(invTrMat);
+
+		mvStack.invert(invTrMat);
 
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
@@ -533,7 +542,8 @@ public class Code extends JFrame implements GLEventListener
 
 		mMat.identity();
 		mMat.set(mvStack);
-		mMat.invert(invTrMat);
+
+		mvStack.invert(invTrMat);
 
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
@@ -561,7 +571,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glEnableVertexAttribArray(2);
 
 		gl.glActiveTexture(GL_TEXTURE0);
-		gl.glBindTexture(GL_TEXTURE_2D, wellTexture1);
+		gl.glBindTexture(GL_TEXTURE_2D, wellTexture);
 
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDepthFunc(GL_LEQUAL);
@@ -586,18 +596,17 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
 		
-	
-
-//==================================================== render normal mapped sphere
-
+//==================================================== render normal mapped moon sphere
 
 		mvStack.pushMatrix();
-		mvStack.translation(sphereX, sphereY, sphereZ);
+		mvStack.translation(moonX, moonY, moonZ);
+		mvStack.scale(3.0f, 3.0f, 3.0f);
 		mvStack.pushMatrix();
 
 		mMat.identity();
 		mMat.set(mvStack);
-		mMat.invert(invTrMat);
+
+		mvStack.invert(invTrMat);
 
 		invTrMat.identity();
 		invTrMat.transpose(invTrMat);
@@ -629,7 +638,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glEnableVertexAttribArray(6);
 		
 		gl.glActiveTexture(GL_TEXTURE2);
-		gl.glBindTexture(GL_TEXTURE_2D, roofTexture);
+		gl.glBindTexture(GL_TEXTURE_2D, moonNormalMap);
 
 		gl.glActiveTexture(GL_TEXTURE3);
 		gl.glBindTexture(GL_TEXTURE_2D, moonTexture);
@@ -642,6 +651,149 @@ public class Code extends JFrame implements GLEventListener
 		gl.glDrawArrays(GL_TRIANGLES, 0, numSphereVertices);
 		mvStack.popMatrix();
 
+
+		// ====== RENDER NORMAL MAP PROGRAM ======
+		gl.glUseProgram(geometryProgram);
+
+		mLoc = gl.glGetUniformLocation(geometryProgram, "m_matrix");
+		vLoc = gl.glGetUniformLocation(geometryProgram, "v_matrix");
+		pLoc = gl.glGetUniformLocation(geometryProgram, "p_matrix");
+		nLoc = gl.glGetUniformLocation(geometryProgram, "norm_matrix");
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+
+//==================================================== render geometry addition snowball
+
+		mvStack.pushMatrix();
+		mvStack.translation(snowmanX, snowmanY, snowmanZ);
+		mvStack.scale(0.5f, 0.5f, 0.5f);
+		mvStack.pushMatrix();
+
+		mMat.identity();
+		mMat.set(mvStack);
+
+		mvStack.invert(invTrMat);
+
+		invTrMat.identity();
+		invTrMat.transpose(invTrMat);
+
+		// LIGHTING
+		// setup lights based on current light position
+		currentLightPos.set(lightCube.getLocation());
+		installLights(geometryProgram);
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[24]);
+		gl.glVertexAttribPointer(9, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(9);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[26]);
+		gl.glVertexAttribPointer(10, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(10);
+
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glDepthFunc(GL_LEQUAL);
+
+		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[27]);
+		gl.glDrawElements(GL_TRIANGLES, numSnowIndices, GL_UNSIGNED_INT, 0);
+
+		mvStack.popMatrix();
+
+//==================================================== render geometry addition snowball2
+
+		mvStack.pushMatrix();
+		mvStack.translation(snowmanX, snowmanY+1.5f, snowmanZ);
+		mvStack.scale(0.4f, 0.4f, 0.4f);
+		mvStack.pushMatrix();
+
+		mMat.identity();
+		mMat.set(mvStack);
+
+		mvStack.invert(invTrMat);
+
+		invTrMat.identity();
+		invTrMat.transpose(invTrMat);
+
+		// LIGHTING
+		// setup lights based on current light position
+		currentLightPos.set(lightCube.getLocation());
+		installLights(geometryProgram);
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[24]);
+		gl.glVertexAttribPointer(9, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(9);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[26]);
+		gl.glVertexAttribPointer(10, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(10);
+
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glDepthFunc(GL_LEQUAL);
+
+		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[27]);
+		gl.glDrawElements(GL_TRIANGLES, numSnowIndices, GL_UNSIGNED_INT, 0);
+
+		mvStack.popMatrix();
+
+
+//==================================================== render geometry addition snowball3
+
+		mvStack.pushMatrix();
+		mvStack.translation(snowmanX, snowmanY+2.7f, snowmanZ);
+		mvStack.scale(0.3f, 0.3f, 0.3f);
+		mvStack.pushMatrix();
+
+		mMat.identity();
+		mMat.set(mvStack);
+
+		mvStack.invert(invTrMat);
+
+		invTrMat.identity();
+		invTrMat.transpose(invTrMat);
+
+		// LIGHTING
+		// setup lights based on current light position
+		currentLightPos.set(lightCube.getLocation());
+		installLights(geometryProgram);
+
+		gl.glUniformMatrix4fv(mLoc, 1, false, mMat.get(vals));
+		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
+		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
+		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[24]);
+		gl.glVertexAttribPointer(9, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(9);
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[26]);
+		gl.glVertexAttribPointer(10, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(10);
+
+		gl.glEnable(GL_CULL_FACE);
+		gl.glFrontFace(GL_CCW);
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glDepthFunc(GL_LEQUAL);
+
+		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[27]);
+		gl.glDrawElements(GL_TRIANGLES, numSnowIndices, GL_UNSIGNED_INT, 0);
+
+		mvStack.popMatrix();
 
 // ======================================================================= render reflective torus
 		
@@ -663,8 +815,13 @@ public class Code extends JFrame implements GLEventListener
 		mvMat.mul(vMat);
 		mvMat.mul(mMat);
 		
-		mMat.invert(invTrMat);
+		mvStack.invert(invTrMat);
 		invTrMat.transpose(invTrMat);
+
+		// LIGHTING
+		// setup lights based on current light position
+		currentLightPos.set(lightCube.getLocation());
+		installLights(envMapProgram);
 
 		gl.glUniformMatrix4fv(mvLoc, 1, false, mvMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
@@ -674,7 +831,7 @@ public class Code extends JFrame implements GLEventListener
 		gl.glVertexAttribPointer(7, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(7);
 
-		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[21]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[22]);
 		gl.glVertexAttribPointer(8, 3, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(8);
 
@@ -686,11 +843,14 @@ public class Code extends JFrame implements GLEventListener
 		gl.glEnable(GL_DEPTH_TEST);
 		gl.glDepthFunc(GL_LEQUAL);
 
-		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[22]);
+		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[23]);
 		gl.glDrawElements(GL_TRIANGLES, numTorusIndices, GL_UNSIGNED_INT, 0);
 		
 		mvStack.popMatrix();
 
+		mvStack.popMatrix();
+		mvStack.popMatrix();
+		mvStack.popMatrix();
 		mvStack.popMatrix();
 		mvStack.popMatrix();
 		mvStack.popMatrix();
@@ -849,26 +1009,52 @@ public class Code extends JFrame implements GLEventListener
 		}
 
 		// torus
-			
 		numTorusVertices = myTorus.getNumVertices();
 		numTorusIndices = myTorus.getNumIndices();
 
 		Vector3f[] torVertices = myTorus.getVertices();
+		Vector2f[] torTexCoords = myTorus.getTexCoords();
 		Vector3f[] torNormals = myTorus.getNormals();
 		int[] torIndices = myTorus.getIndices();
 
 		float[] torPvalues = new float[vertices.length*3];
+		float[] torTvalues = new float[texCoords.length*2];
 		float[] torNvalues = new float[normals.length*3];
 
 		for (int i=0; i<numTorusVertices; i++)
 		{	torPvalues[i*3]   = (float) torVertices[i].x();
 			torPvalues[i*3+1] = (float) torVertices[i].y();
 			torPvalues[i*3+2] = (float) torVertices[i].z();
+			torTvalues[i*2]   = (float) torTexCoords[i].x();
+			torTvalues[i*2+1] = (float) torTexCoords[i].y();
 			torNvalues[i*3]   = (float) torNormals[i].x();
 			torNvalues[i*3+1] = (float) torNormals[i].y();
 			torNvalues[i*3+2] = (float) torNormals[i].z();
 		}
 
+		// snowman
+		numSnowVertices = mySnowman.getNumVertices();
+		numSnowIndices = mySnowman.getNumIndices();
+
+		Vector3f[] snowVertices = mySnowman.getVertices();
+		Vector2f[] snowTexCoords = mySnowman.getTexCoords();
+		Vector3f[] snowNormals = mySnowman.getNormals();
+		int[] snowIndices = mySnowman.getIndices();
+
+		float[] snowPvalues = new float[vertices.length*3];
+		float[] snowTvalues = new float[texCoords.length*2];
+		float[] snowNvalues = new float[normals.length*3];
+
+		for (int i=0; i<numSnowVertices; i++)
+		{	snowPvalues[i*3]   = (float) snowVertices[i].x();
+			snowPvalues[i*3+1] = (float) snowVertices[i].y();
+			snowPvalues[i*3+2] = (float) snowVertices[i].z();
+			snowTvalues[i*2]   = (float) snowTexCoords[i].x();
+			snowTvalues[i*2+1] = (float) snowTexCoords[i].y();
+			snowNvalues[i*3]   = (float) snowNormals[i].x();
+			snowNvalues[i*3+1] = (float) snowNormals[i].y();
+			snowNvalues[i*3+2] = (float) snowNormals[i].z();
+		}
 
 		// buffers definition
 		gl.glGenVertexArrays(vao.length, vao, 0);
@@ -946,35 +1132,56 @@ public class Code extends JFrame implements GLEventListener
 		FloatBuffer wellTexBuf = Buffers.newDirectFloatBuffer(wellTvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, wellTexBuf.limit()*4, wellTexBuf, GL_STATIC_DRAW);
 		
-
+		// sphere vertices (for bump/normal mapping)
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[16]);
 		FloatBuffer normalVertBuf = Buffers.newDirectFloatBuffer(normalPvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, normalVertBuf.limit()*4, normalVertBuf, GL_STATIC_DRAW);
-
+		// sphere texture
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[17]);
 		FloatBuffer normalTexBuf = Buffers.newDirectFloatBuffer(normalTvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, normalTexBuf.limit()*4, normalTexBuf, GL_STATIC_DRAW);
-
+		// sphere normal
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[18]);
 		FloatBuffer normalNorBuf = Buffers.newDirectFloatBuffer(normalNvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, normalNorBuf.limit()*4, normalNorBuf, GL_STATIC_DRAW);
-
+		// sphere tangent
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[19]);
 		FloatBuffer normalTanBuf = Buffers.newDirectFloatBuffer(normalTanvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, normalTanBuf.limit()*4, normalTanBuf, GL_STATIC_DRAW);
 
-
+		// torus vertices (env mapping)
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[20]);
 		FloatBuffer torBuf = Buffers.newDirectFloatBuffer(torPvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, torBuf.limit()*4, torBuf, GL_STATIC_DRAW);
-		
+		// torus texture
 		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[21]);
+		FloatBuffer torTexBuf = Buffers.newDirectFloatBuffer(torTvalues);
+		gl.glBufferData(GL_ARRAY_BUFFER, torTexBuf.limit()*4, torTexBuf, GL_STATIC_DRAW);
+		// torus normal
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[22]);
 		FloatBuffer torNorBuf = Buffers.newDirectFloatBuffer(torNvalues);
 		gl.glBufferData(GL_ARRAY_BUFFER, torNorBuf.limit()*4, torNorBuf, GL_STATIC_DRAW);
-		
-		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[22]);
+		// torus indices
+		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[23]);
 		IntBuffer idxBuf = Buffers.newDirectIntBuffer(torIndices);
 		gl.glBufferData(GL_ELEMENT_ARRAY_BUFFER, idxBuf.limit()*4, idxBuf, GL_STATIC_DRAW);
+
+		// snowball vertices (env mapping)
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[24]);
+		FloatBuffer snowBuf = Buffers.newDirectFloatBuffer(snowPvalues);
+		gl.glBufferData(GL_ARRAY_BUFFER, snowBuf.limit()*4, snowBuf, GL_STATIC_DRAW);
+		// snowball texture
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[25]);
+		FloatBuffer snowTexBuf = Buffers.newDirectFloatBuffer(snowTvalues);
+		gl.glBufferData(GL_ARRAY_BUFFER, snowTexBuf.limit()*4, snowTexBuf, GL_STATIC_DRAW);
+		// snowball normal
+		gl.glBindBuffer(GL_ARRAY_BUFFER, vbo[26]);
+		FloatBuffer snowNorBuf = Buffers.newDirectFloatBuffer(snowNvalues);
+		gl.glBufferData(GL_ARRAY_BUFFER, snowNorBuf.limit()*4, snowNorBuf, GL_STATIC_DRAW);
+		// snowball indices
+		gl.glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo[27]);
+		IntBuffer idxBuf2 = Buffers.newDirectIntBuffer(snowIndices);
+		gl.glBufferData(GL_ELEMENT_ARRAY_BUFFER, idxBuf2.limit()*4, idxBuf2, GL_STATIC_DRAW);
 	}
 
 	public void addMouseMotion(GLCanvas myCanvas) {

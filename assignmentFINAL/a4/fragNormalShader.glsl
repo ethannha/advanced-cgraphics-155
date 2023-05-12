@@ -29,6 +29,7 @@ struct Material
 uniform vec4 globalAmbient;
 uniform PositionalLight light;
 uniform Material material;
+uniform float intensity;
 uniform mat4 m_matrix;
 uniform mat4 v_matrix;
 uniform mat4 p_matrix;
@@ -68,6 +69,6 @@ void main(void)
 	
 	// compute ADS contributions with surface texture image:
 	fragColor = globalAmbient +
-		texel * (light.ambient + light.diffuse * max(cosTheta,0.0)
-		+ light.specular * pow(max(cosPhi,0.0), material.shininess));
+		texel * ((light.ambient + light.diffuse * max(cosTheta,0.0)) * intensity)
+		+ ((light.specular * pow(max(cosPhi,0.0), material.shininess)) * intensity);
 }

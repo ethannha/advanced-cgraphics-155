@@ -17,6 +17,7 @@ struct Material
 uniform vec4 globalAmbient;
 uniform PositionalLight light;
 uniform Material material;
+uniform float intensity;
 uniform mat4 m_matrix;
 uniform mat4 v_matrix;
 uniform mat4 p_matrix;
@@ -48,8 +49,8 @@ void main(void)
 	
 	color = 0.5 * 
 		( globalAmbient * material.ambient  +  light.ambient * material.ambient
-		+ light.diffuse * material.diffuse * max(cosTheta,0.0)
-		+ light.specular * material.specular * pow(max(cosPhi,0.0), material.shininess)
+		+ ((light.diffuse * material.diffuse * max(cosTheta,0.0)) * intensity)
+		+ ((light.specular * material.specular * pow(max(cosPhi,0.0), material.shininess)) * intensity)
 		) +
 		0.5 *
 		( texture(tex_color, tes_out)
