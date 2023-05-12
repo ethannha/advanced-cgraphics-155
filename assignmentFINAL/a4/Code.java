@@ -68,7 +68,10 @@ public class Code extends JFrame implements GLEventListener
 	private float[] lightAmbient = new float[] { 0.0f, 0.0f, 0.0f, 1.0f };
 	private float[] lightDiffuse = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
 	private float[] lightSpecular = new float[] { 1.0f, 1.0f, 1.0f, 1.0f };
-		
+	
+	private float[] thisAmb, thisDif, thisSpe;
+	private float thisShi;
+
 	// custom material properties
 	private float[] matAmb = new float[] { 0.5f, 0.7f, 0.8f, 1.0f };
 	private float[] matDif = new float[] { 0.8f, 0.9f, 1.0f, 1.0f };
@@ -96,6 +99,11 @@ public class Code extends JFrame implements GLEventListener
 	private int numTorusVertices, numTorusIndices;
 	private Torus mySnowman = new Torus(0.1f, 2.0f, 48);
 	private int numSnowVertices, numSnowIndices;
+
+	// anaglyph
+	private float IOD = 0.01f;  // tunable interocular distance
+	private float near = 0.01f;
+	private float far = 100.0f;
 
 
 	public Code()
@@ -151,7 +159,7 @@ public class Code extends JFrame implements GLEventListener
 		axesOn = false;
 		lightOn = true;
 		
-		cameraX = 1.5f; cameraY = 2.5f; cameraZ = 8.0f;
+		cameraX = 1.5f; cameraY = 2.0f; cameraZ = 6.0f;
 		Vector3f camLoc = new Vector3f(cameraX, cameraY, cameraZ);
 		Vector3f tarLoc = new Vector3f(cameraX, cameraY, 0.0f);
 		cam = new Camera(camLoc, tarLoc);
@@ -213,16 +221,27 @@ public class Code extends JFrame implements GLEventListener
 		gl.glProgramUniform1f(renderingProgram, mshiLoc, matShi);
 	}
 
+	private void computePerspectiveMatrix(float leftRight)
+	{	float top = (float)Math.tan(1.0472f / 2.0f) * (float)near;
+		float bottom = -top;
+		float frustumshift = (IOD / 2.0f) * near / far;
+		float left = -aspect * top - frustumshift * leftRight;
+		float right = aspect * top - frustumshift * leftRight;
+		pMat.setFrustum(left, right, bottom, top, near, far);
+	}
+
 	public void display(GLAutoDrawable drawable)
 	{	
 		GL4 gl = (GL4) GLContext.getCurrentGL();
+
+		gl.glColorMask(true, true, true, true);
 		gl.glClear(GL_COLOR_BUFFER_BIT);
+		gl.glClearColor(0.7f, 0.8f, 0.8f, 1.0f); // background fog color is bluish-grey
 		gl.glClear(GL_DEPTH_BUFFER_BIT);
 
 		// ====== TIME ELAPSED AND FRAMES SET UP ======
 		elapsedTime = System.currentTimeMillis() - startTime;
 		tf = elapsedTime/1000.0;
-		
 		long currentFrame = System.currentTimeMillis();
 		deltaTime = (float) ((currentFrame - lastFrame) / 1000.0);
 		lastFrame = currentFrame;
@@ -230,7 +249,30 @@ public class Code extends JFrame implements GLEventListener
 		aspect = (float) myCanvas.getWidth() / (float) myCanvas.getHeight();
 		pMat.setPerspective((float) Math.toRadians(60.0f), aspect, 0.1f, 1000.0f);
 
+		gl.glColorMask(true, false, false, false);
+		scene(-2.0f);
+				
+		gl.glClear(GL_DEPTH_BUFFER_BIT);
 		
+		gl.glColorMask(false, true, true, false);
+		scene(2.0f);
+
+	}
+
+
+	public void scene(float leftRight) 
+	{	
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+
+		computePerspectiveMatrix(leftRight);
+
+		
+		// ======== CAMERA/VIEW MATRIX SET UP ========
+		vMat.identity();
+		mvStack.pushMatrix();
+		vMat = cam.getViewMatrix();
+		vMat.translate(-(leftRight * IOD/2.0f), 0.0f, 0.0f);
+
 		// ====== RENDER CUBE MAP PROGRAM ======
 		gl.glUseProgram(cubeMapProgram);
 
@@ -367,6 +409,7 @@ public class Code extends JFrame implements GLEventListener
 
 		// ======= RENDER OBJECTS PROGRAM =======
 		gl.glUseProgram(renderingProgram);
+
 		mLoc = gl.glGetUniformLocation(renderingProgram, "m_matrix");
 		vLoc = gl.glGetUniformLocation(renderingProgram, "v_matrix");
 		pLoc = gl.glGetUniformLocation(renderingProgram, "p_matrix");
@@ -377,11 +420,6 @@ public class Code extends JFrame implements GLEventListener
 		gl.glUniformMatrix4fv(vLoc, 1, false, vMat.get(vals));
 		gl.glUniformMatrix4fv(pLoc, 1, false, pMat.get(vals));
 		gl.glUniformMatrix4fv(nLoc, 1, false, invTrMat.get(vals));
-
-		// ======== CAMERA/VIEW MATRIX SET UP ========
-		vMat.identity();
-		mvStack.pushMatrix();
-		vMat = cam.getViewMatrix();
 
 // ======================================================================= duck obj
 		mvStack.pushMatrix();
@@ -524,6 +562,10 @@ public class Code extends JFrame implements GLEventListener
 		gl.glEnableVertexAttribArray(2);
 
 		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
 		gl.glBindTexture(GL_TEXTURE_2D, signTexture);
 
 		gl.glEnable(GL_DEPTH_TEST);
@@ -571,6 +613,10 @@ public class Code extends JFrame implements GLEventListener
 		gl.glEnableVertexAttribArray(2);
 
 		gl.glActiveTexture(GL_TEXTURE0);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
 		gl.glBindTexture(GL_TEXTURE_2D, wellTexture);
 
 		gl.glEnable(GL_DEPTH_TEST);
@@ -805,7 +851,7 @@ public class Code extends JFrame implements GLEventListener
 
 		mvStack.pushMatrix();
 		mvStack.translation(reflectX, reflectY, reflectZ);
-		mvStack.scale(1.0f, 1.0f, 1.0f);
+		mvStack.scale(0.9f, 0.9f, 0.9f);
 		mvStack.pushMatrix();
 
 		mMat.identity();
@@ -861,10 +907,8 @@ public class Code extends JFrame implements GLEventListener
 		mvStack.popMatrix();
 		mvStack.popMatrix();
 
-
-
-
 	}
+	
 	
 	private void setupVertices()
 	{	
@@ -1199,8 +1243,8 @@ public class Code extends JFrame implements GLEventListener
 				x -= lightCube.getX() / 2;
 				y -= lightCube.getZ() / 2;
 
-				lightCube.setX(x/50);
-				lightCube.setZ(y/50);
+				lightCube.setX(x/40);
+				lightCube.setZ(y/40);
    			 }
 		});
 		myCanvas.addMouseWheelListener(new MouseWheelListener() {
